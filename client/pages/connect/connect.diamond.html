@@ -18,11 +18,26 @@
           <input type="password" autocomplete="current-password" placeholder="the short phrase you chose" value.two-way="unlockPass" keyup.calls="onUnlockKey($event)">
         </label>
       </div>
+      <div class="model-switch" if="liveConnected">
+        <h2>Model</h2>
+        <p class="muted">Connected to ${liveProvider} with <span class="mono">${liveModel}</span>. Switch models here without reconnecting: no key or passphrase to enter again.</p>
+        <div class="actions">
+          <input type="text" class="model-input" placeholder="model id" value.two-way="switchModel" title.to-view="tip('connect.switch.model')">
+          <button type="button" class="btn btn-ghost btn-sm" disabled.to-view="busy" click.calls="listLiveModels()" title.to-view="tip('connect.switch.list')">List models</button>
+          <select if="hasSwitchModels" change.calls="pickSwitchModel($event)">
+            <option value="">— pick from ${switchModelCount} models —</option>
+            <option repeat.for="m of switchModels" value.to-view="m">${m}</option>
+          </select>
+          <button type="button" class="btn btn-primary btn-sm" disabled.to-view="!canUseModel" click.calls="useModel()" title.to-view="tip('connect.switch.use')">${useModelLabel}</button>
+        </div>
+        <p classname.to-view="switchNoteClass" if="switchNote">${switchNote}</p>
+      </div>
       <p class="error" if="error">${error}</p>
       <div class="actions">
         <button type="button" class="btn btn-primary" disabled.to-view="busy" click.calls="unlock()" title.to-view="tip('connect.unlock')">${unlockLabel}</button>
         <button type="button" class="btn btn-ghost" click.calls="useDifferent()" title.to-view="tip('connect.different')">Use a different connection</button>
         <button type="button" class="btn btn-ghost btn-danger-text" click.calls="forget()" title.to-view="tip('connect.forget')">Forget this browser's saved connection</button>
+        <button type="button" class="btn btn-ghost btn-danger-text" disabled.to-view="busy" click.calls="clearBrowserData()" title.to-view="tip('connect.clear_data')">Clear browser data</button>
       </div>
     </div>
 
