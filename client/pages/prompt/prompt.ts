@@ -3,7 +3,7 @@
  * selection, launch the job. All fields forward to services/prompt.ts so the
  * draft survives tab changes; the page itself is rebuilt on every navigation.
  */
-import { Component, reactive } from '@diamondjs/runtime'
+import { Component, DiamondCore, reactive } from '@diamondjs/runtime'
 import { Print } from '@diamondjs/primafacie'
 import * as T from './prompt.diamond.html'
 import type { ChatMessage, WindowPlan } from '../../../shared/types.ts'
@@ -38,8 +38,9 @@ function fmtDuration(ms: number | null): string {
   return `${h}h ${m % 60}m`
 }
 
+const template = (T as unknown as { createTemplate: (this: PromptPage) => HTMLElement }).createTemplate
+
 export class PromptPage extends Component {
-  createTemplate = (T as unknown as { createTemplate: (this: PromptPage) => HTMLElement }).createTemplate
   private viewer = new SourceViewer({ compact: true })
   private paramsForm = new ModelParamsForm()
   private tail = new TailFollower()
@@ -61,33 +62,33 @@ export class PromptPage extends Component {
 
   readonly templateVars: string[] = [...TEMPLATE_VARS].map((v) => `{{${v}}}`)
 
-  constructor(_params?: Record<string, unknown>) {
-    super()
-    ui.activeTab = 'prompt'
+  /** The viewer and the parameter form are children: mounted child-first, disposed with the page. */
+  override createTemplate(): HTMLElement {
+    const root = template.call(this)
+    const slot = root.querySelector<HTMLElement>('.viewer-host')
+    if (slot) DiamondCore.child(this.viewer, slot)
+    const paramsSlot = root.querySelector<HTMLElement>('.params-host')
+    if (paramsSlot) DiamondCore.child(this.paramsForm, paramsSlot)
+    return root
   }
 
-  override mount(host: HTMLElement): void {
-    super.mount(host)
-    const root = this.getElement()
-    const slot = root?.querySelector<HTMLElement>('.viewer-host')
-    if (slot) this.viewer.mount(slot)
-    const paramsSlot = root?.querySelector<HTMLElement>('.params-host')
-    if (paramsSlot) this.paramsForm.mount(paramsSlot)
+  /** In the document, children included: the viewer can scroll to the focus. */
+  override mounted(): void {
+    ui.activeTab = 'prompt'
+    const root = this.getElement()!
     // The second textarea is the user template; remember it for caret insertion.
-    const areas = root?.querySelectorAll<HTMLTextAreaElement>('textarea') ?? []
-    this.lastUserTemplateEl = areas[1] ?? null
+    this.lastUserTemplateEl = root.querySelectorAll<HTMLTextAreaElement>('textarea')[1] ?? null
     const focus = prompt.previewFocus()
     if (focus) this.viewer.scrollToOffset(focus.start)
-    this.tail.follow(root?.querySelector<HTMLElement>('.preview-out') ?? null)
+    this.tail.follow(root.querySelector<HTMLElement>('.preview-out'))
+    this.registerCleanup(() => this.tail.detach())
+    // The token-count interval is ours, not the framework's: stop it with the mount.
+    this.registerCleanup(() => this.stopGenTimer())
   }
 
-  override unmount(): void {
+  /** Still in the document: stop a preview that is streaming into it. */
+  override unmounting(): void {
     this.previewAbort?.abort()
-    this.stopGenTimer()
-    this.tail.detach()
-    this.paramsForm.unmount()
-    this.viewer.unmount()
-    super.unmount()
   }
 
   tip(path: string): string {
@@ -120,10 +121,10 @@ export class PromptPage extends Component {
     const start = el.selectionStart ?? current.length
     const end = el.selectionEnd ?? start
     prompt.state.spec.userTemplate = current.slice(0, start) + v + current.slice(end)
-    queueMicrotask(() => {
+    queueMicrotask(this.whileMounted(() => {
       el.focus()
       el.setSelectionRange(start + v.length, start + v.length)
-    })
+    }))
   }
   resetPrompts(): void {
     prompt.resetPrompts()

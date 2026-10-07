@@ -16,23 +16,27 @@ function fmtDuration(ms: number | null): string {
   return `${Math.floor(m / 60)}h ${m % 60}m`
 }
 
+const template = (T as unknown as { createTemplate: (this: OutputPage) => HTMLElement }).createTemplate
+
 export class OutputPage extends Component {
-  createTemplate = (T as unknown as { createTemplate: (this: OutputPage) => HTMLElement }).createTemplate
 
   private liveTail = new TailFollower()
   private outTail = new TailFollower()
   private slider = new SlideToConfirm({ label: 'Slide right to clear output', onConfirm: () => this.clearNow() })
   @reactive confirmClear = false
 
-  constructor(_params?: Record<string, unknown>) {
-    super()
-    ui.activeTab = 'output'
+  /** The slider is a child, disposed with the page. The confirmation banner is hidden with a class rather than `if`, so its host exists whenever there is a job. */
+  override createTemplate(): HTMLElement {
+    const root = template.call(this)
+    const slideHost = root.querySelector<HTMLElement>('.slide-host')
+    if (slideHost) DiamondCore.child(this.slider, slideHost)
+    return root
   }
 
-  override mount(host: HTMLElement): void {
-    super.mount(host)
+  override mounted(): void {
+    ui.activeTab = 'output'
     // Follow the newest text in the Live and Output panes while the reader is at the bottom.
-    const cleanup = DiamondCore.effect(() => {
+    DiamondCore.effect(() => {
       void job.liveText()
       void job.state.outputVersion
       const root = this.getElement()
@@ -41,17 +45,10 @@ export class OutputPage extends Component {
       this.outTail.follow(root?.querySelector<HTMLElement>('.output-text') ?? null)
       this.outTail.stick()
     })
-    this.registerCleanup(cleanup)
-    // The confirmation banner is hidden with a class rather than `if`, so its slider host always exists.
-    const slideHost = this.getElement()?.querySelector<HTMLElement>('.slide-host')
-    if (slideHost) this.slider.mount(slideHost)
-  }
-
-  override unmount(): void {
-    this.slider.unmount()
-    this.liveTail.detach()
-    this.outTail.detach()
-    super.unmount()
+    this.registerCleanup(() => {
+      this.liveTail.detach()
+      this.outTail.detach()
+    })
   }
 
   // ── clear output (guarded) ───────────────────────────────────────────────
@@ -65,7 +62,7 @@ export class OutputPage extends Component {
     if (!job.canClear) return
     this.confirmClear = true
     this.slider.reset()
-    requestAnimationFrame(() => this.getElement()?.querySelector<HTMLElement>('.slide-knob')?.focus())
+    requestAnimationFrame(this.whileMounted(() => this.getElement()?.querySelector<HTMLElement>('.slide-knob')?.focus()))
   }
   keepOutput(): void {
     this.confirmClear = false

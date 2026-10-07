@@ -66,18 +66,19 @@ export class SourceViewer extends Component {
 
     root.append(toolbar, this.scroller)
 
-    this.registerCleanup(DiamondCore.on(go, 'click', () => this.jumpToPercent(Number(this.jumpInput.value))))
-    this.registerCleanup(DiamondCore.on(this.jumpInput, 'keydown', (e) => {
+    // Listeners and effects land in the mount scope and are released at unmount().
+    DiamondCore.on(go, 'click', () => this.jumpToPercent(Number(this.jumpInput.value)))
+    DiamondCore.on(this.jumpInput, 'keydown', (e) => {
       if ((e as KeyboardEvent).key === 'Enter') this.jumpToPercent(Number(this.jumpInput.value))
-    }))
-    this.registerCleanup(DiamondCore.on(more, 'click', () => this.renderBatch()))
-    this.registerCleanup(DiamondCore.on(this.scroller, 'mouseup', () => this.captureSelection()))
-    this.registerCleanup(DiamondCore.on(this.scroller, 'keyup', () => this.captureSelection()))
+    })
+    DiamondCore.on(more, 'click', () => this.renderBatch())
+    DiamondCore.on(this.scroller, 'mouseup', () => this.captureSelection())
+    DiamondCore.on(this.scroller, 'keyup', () => this.captureSelection())
     return root
   }
 
-  override mount(host: HTMLElement): void {
-    super.mount(host)
+  /** In the document: the scroller has a real box, so the observer and scroll position mean something. */
+  override mounted(): void {
     this.observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) this.renderBatch()
@@ -88,19 +89,15 @@ export class SourceViewer extends Component {
     this.registerCleanup(() => this.observer?.disconnect())
 
     // Rebuild when the document changes.
-    this.registerCleanup(
-      DiamondCore.effect(() => {
-        void documents.state.docVersion
-        this.reset()
-      }),
-    )
+    DiamondCore.effect(() => {
+      void documents.state.docVersion
+      this.reset()
+    })
     // Re-highlight when the selection changes.
-    this.registerCleanup(
-      DiamondCore.effect(() => {
-        const sel = documents.state.selection
-        this.applyHighlight(sel ? { start: sel.start, end: sel.end } : null)
-      }),
-    )
+    DiamondCore.effect(() => {
+      const sel = documents.state.selection
+      this.applyHighlight(sel ? { start: sel.start, end: sel.end } : null)
+    })
   }
 
   private reset(): void {

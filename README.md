@@ -326,7 +326,11 @@ Tests write their temporary data directories under the system temp dir; set `TUR
 
 ### DiamondJS notes
 
-Turbine runs on DiamondJS **2.2.3**, which fixed five bugs found while building it ([#7](https://github.com/Node0/diamondjs/issues/7) first-render of `if`/`switch`/`repeat`, [#8](https://github.com/Node0/diamondjs/issues/8) static `href` and the stink gate, [#9](https://github.com/Node0/diamondjs/issues/9) `select` binding order, [#10](https://github.com/Node0/diamondjs/issues/10) `route-check` template imports, [#11](https://github.com/Node0/diamondjs/issues/11) `@reactive` under define semantics). Two settings still matter:
+Turbine runs on DiamondJS **2.3.0**. Building Turbine surfaced the bugs fixed in 2.2.3 ([#7](https://github.com/Node0/diamondjs/issues/7) first-render of `if`/`switch`/`repeat`, [#8](https://github.com/Node0/diamondjs/issues/8) static `href` and the stink gate, [#9](https://github.com/Node0/diamondjs/issues/9) `select` binding order, [#10](https://github.com/Node0/diamondjs/issues/10) `route-check` template imports, [#11](https://github.com/Node0/diamondjs/issues/11) `@reactive` under define semantics) and the whitespace defect fixed in 2.3.0 ([#15](https://github.com/Node0/diamondjs/issues/15)).
+
+Components use the 2.3 lifecycle contract. They never override `mount()`/`unmount()`; those are final. Child components (`SourceViewer`, `ModelParamsForm`, `SlideToConfirm`) are registered with `DiamondCore.child()` while the page's template builds, so they mount child-first and are disposed along with the page. Work that needs a real box (observers, scrolling to the focus, tail-following) happens in `mounted()`. Listeners and effects are released by the mount scope. Deferred callbacks (`requestAnimationFrame`, `queueMicrotask`) go through `whileMounted()`.
+
+Two settings still matter:
 
 - `tsconfig.json` sets `experimentalDecorators: true` **and** `useDefineForClassFields: false`, the documented configuration. Since 2.2.3 reactivity no longer depends on the second flag, but it keeps the compiled output honest.
 - `package.json` declares an explicit browser `targets.client` block for Parcel; without it Parcel externalized the `@diamondjs/*` imports and the page came up blank.

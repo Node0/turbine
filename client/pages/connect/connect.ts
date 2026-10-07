@@ -52,11 +52,14 @@ export class ConnectPage extends Component {
   @reactive testResult = ''
   @reactive testOk: boolean | null = null
   @reactive error = ''
-  /** Flipped after mount so <select> bindings re-run once their <option>s exist. */
-  constructor(_params?: Record<string, unknown>) {
-    super()
-    ui.activeTab = 'connect'
+  /** @reactive fields are live here under any toolchain; the form is not built yet. */
+  override constructed(): void {
     this.prefillFromVault()
+  }
+
+  /** The page is showing: only now does its tab light up (a guard or failed commit never gets here). */
+  override mounted(): void {
+    ui.activeTab = 'connect'
   }
 
   get localPresetSel(): string {

@@ -1,6 +1,6 @@
 {
   "name": "turbine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Turbine — a programmable sliding-window map/reduce pump for long documents. DiamondJS front end, Elysia (Bun) back end.",
@@ -42,12 +42,12 @@
     }
   },
   "dependencies": {
-    "@diamondjs/app": "2.2.3",
+    "@diamondjs/app": "2.3.0",
     "elysia": "^1.4.30",
     "tiktoken": "^1.0.22"
   },
   "devDependencies": {
-    "@diamondjs/dev": "2.2.3",
+    "@diamondjs/dev": "2.3.0",
     "@types/bun": "^1.4.2",
     "typescript": "^5.5.0"
   }
