@@ -139,6 +139,12 @@
     "connect": "Save this connection in this browser and start using it.",
     "unlock": "Decrypt the saved key with your passphrase and reconnect.",
     "forget": "Erase the connection and the encrypted key from this browser.",
-    "different": "Set up another connection instead of the saved one."
+    "clear_data": "Start fresh: erase everything Turbine keeps in this browser (connection, encrypted key, prompt draft and settings, last document and job) and end the server session. Saved output files are untouched.",
+    "different": "Set up another connection instead of the saved one.",
+    "switch": {
+      "model": "The model id for the current connection. Type one, or list the backend's models and pick.",
+      "list": "Ask the connected backend which models it offers, using the key this session already holds.",
+      "use": "Switch the current connection to this model. The backend, key and passphrase stay as they are."
+    }
   }
 }

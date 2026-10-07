@@ -14,6 +14,7 @@ import { createProvider } from '../../../shared/providers/index.ts'
 import { api } from '../../services/api.ts'
 import { tip as tipText } from '../../services/tooltips.ts'
 import { nav, ui } from '../../services/nav.ts'
+import { job } from '../../services/job.ts'
 import { session } from '../../services/session.ts'
 import { vault } from '../../services/vault.ts'
 
@@ -52,9 +53,16 @@ export class ConnectPage extends Component {
   @reactive testResult = ''
   @reactive testOk: boolean | null = null
   @reactive error = ''
+  // The welcome panel's model switcher, for the live connection.
+  @reactive switchModel = ''
+  @reactive switchModels: string[] = []
+  @reactive switchNote = ''
+  @reactive switchOk: boolean | null = null
+
   /** @reactive fields are live here under any toolchain; the form is not built yet. */
   override constructed(): void {
     this.prefillFromVault()
+    this.switchModel = this.liveModel
   }
 
   /** The page is showing: only now does its tab light up (a guard or failed commit never gets here). */
@@ -85,7 +93,7 @@ export class ConnectPage extends Component {
     const rec = vault.load()
     if (!rec) {
       this.applyLocalDefaults()
-      this.model = session.state.providers?.connections.find((c) => c.connection.api_type === 'ollama')?.connection.model ?? ''
+      this.model = this.defaultModel(this.localPreset)
       return
     }
     this.mode = rec.mode
@@ -104,6 +112,17 @@ export class ConnectPage extends Component {
       this.remotePreset = rec.preset_id
       this.baseUrl = rec.connection.base_url
     }
+  }
+
+  /** The model to offer for a provider: the one saved with it, else its default. Never another provider's model. */
+  private defaultModel(presetId: string): string {
+    const rec = vault.load()
+    if (rec?.preset_id === presetId) return rec.connection.model
+    const providers = session.state.providers?.connections ?? []
+    const server = providers.find((c) => `server:${c.name}` === presetId)
+    if (server) return server.connection.model
+    if (presetId === 'ollama') return providers.find((c) => c.connection.api_type === 'ollama')?.connection.model ?? ''
+    return presetById(presetId)?.default_model ?? ''
   }
 
   private applyLocalDefaults(): void {
@@ -220,17 +239,87 @@ export class ConnectPage extends Component {
     return this.unlockNeedsPassphrase ? 'Unlock' : 'Connect'
   }
 
+  // ── model switcher (live connection) ─────────────────────────────────────
+  get liveConnected(): boolean {
+    return session.state.connected && session.state.connection !== null
+  }
+  get liveModel(): string {
+    return session.state.connection?.model ?? ''
+  }
+  get liveProvider(): string {
+    return session.state.connection?.name ?? ''
+  }
+  get hasSwitchModels(): boolean {
+    return this.switchModels.length > 0
+  }
+  get switchModelCount(): number {
+    return this.switchModels.length
+  }
+  get switchNoteClass(): string {
+    return this.switchOk === null ? 'muted' : this.switchOk ? 'ok' : 'error'
+  }
+  get canUseModel(): boolean {
+    const m = this.switchModel.trim()
+    return this.liveConnected && !this.busy && m !== '' && m !== this.liveModel
+  }
+  get useModelLabel(): string {
+    return this.busy ? 'Switching…' : 'Use model'
+  }
+  pickSwitchModel(e: Event): void {
+    const v = (e.target as HTMLSelectElement).value
+    if (v) this.switchModel = v
+  }
+  async listLiveModels(): Promise<void> {
+    this.switchNote = ''
+    this.switchOk = null
+    this.busy = true
+    try {
+      this.switchModels = await session.listLiveModels()
+      if (this.switchModels.length === 0) this.switchNote = 'The backend answered but listed no models.'
+    } catch (e) {
+      this.switchOk = false
+      this.switchNote = e instanceof Error ? e.message : String(e)
+    } finally {
+      this.busy = false
+    }
+  }
+  async useModel(): Promise<void> {
+    if (!this.canUseModel) return
+    const model = this.switchModel.trim()
+    this.switchNote = ''
+    this.switchOk = null
+    this.busy = true
+    try {
+      await session.useModel(model)
+      this.model = model
+      this.switchOk = true
+      this.switchNote = `Now using ${model}.`
+      Print('SUCCESS', `model switched: ${session.connectionLabel()}`)
+    } catch (e) {
+      this.switchOk = false
+      this.switchNote = e instanceof Error ? e.message : String(e)
+    } finally {
+      this.busy = false
+    }
+  }
+
   // ── actions ──────────────────────────────────────────────────────────────
   setMode(mode: 'local' | 'remote'): void {
+    if (mode === this.mode) return
     this.mode = mode
     this.testResult = ''
     this.testOk = null
     this.error = ''
     if (mode === 'remote') this.onRemotePreset()
+    else {
+      this.models = []
+      this.model = this.defaultModel(this.localPreset)
+    }
   }
   onLocalPreset(): void {
     this.applyLocalDefaults()
     this.models = []
+    this.model = this.defaultModel(this.localPreset)
   }
   onRemotePreset(): void {
     this.models = []
@@ -238,7 +327,7 @@ export class ConnectPage extends Component {
       const c = session.state.providers?.connections.find((x) => `server:${x.name}` === this.remotePreset)
       if (c) {
         this.baseUrl = c.connection.base_url
-        this.model = c.connection.model
+        this.model = this.defaultModel(this.remotePreset)
         this.ctxLen = String(c.connection.ctx_len)
       }
       return
@@ -247,7 +336,7 @@ export class ConnectPage extends Component {
     if (preset) {
       this.baseUrl = preset.base_url
       this.ctxLen = String(preset.ctx_len)
-      if (preset.default_model && !this.model) this.model = preset.default_model
+      this.model = this.defaultModel(this.remotePreset)
     }
   }
   pickModel(e: Event): void {
@@ -385,6 +474,17 @@ export class ConnectPage extends Component {
     } finally {
       this.busy = false
     }
+  }
+
+  async clearBrowserData(): Promise<void> {
+    if (job.isActive) {
+      this.error = 'A job is still running or paused. Cancel it on the Output tab first; clearing would leave it orphaned on the server.'
+      return
+    }
+    if (!confirm('Clear everything Turbine keeps in this browser?\n\nThis removes the saved connection and encrypted key, your prompt draft and settings, and the memory of the last document and job, then reloads. Saved output files are not affected.')) return
+    this.busy = true
+    await session.clearBrowserData()
+    location.assign('/connect')
   }
 
   async forget(): Promise<void> {

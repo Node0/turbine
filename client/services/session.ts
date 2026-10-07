@@ -10,7 +10,7 @@ import { DiamondCore } from '@diamondjs/runtime'
 import { Print } from '@diamondjs/primafacie'
 import type { ConnectionSpec, Provider } from '../../shared/types.ts'
 import type { ClientConfig, ConnectRequest, Execution, ProvidersInfo, SessionInfo } from '../../shared/api.ts'
-import { createProvider } from '../../shared/providers/index.ts'
+import { createProvider, normalizeConnection } from '../../shared/providers/index.ts'
 import { api } from './api.ts'
 import { computeFingerprint } from './fingerprint.ts'
 import { vault, type VaultRecord } from './vault.ts'
@@ -83,6 +83,12 @@ function readVault(): VaultRecord | null {
   state.vaultServerKey = Boolean(rec?.server_key)
   state.vaultPresetId = rec?.preset_id ?? ''
   return rec
+}
+
+/** The config.json connection the live one came from, when its key is held by the server. */
+function livePreset(): string | undefined {
+  const rec = vault.load()
+  return rec?.server_key ? rec.preset_id.replace(/^server:/, '') : undefined
 }
 
 function snapshot<T>(v: T): T {
@@ -198,6 +204,29 @@ export const session = {
     await connectWith(rec.connection, undefined, rec.server_key ? rec.preset_id.replace(/^server:/, '') : undefined)
   },
 
+  /** Models offered by the live connection, listed with the key this session already holds. */
+  async listLiveModels(): Promise<string[]> {
+    const connection = state.connection
+    if (!connection) throw new Error('Connect first.')
+    if (state.execution === 'browser') return session.providerForBrowser(connection).listModels()
+    return (await api.providers.models({ connection: snapshot(connection), preset: livePreset() })).models
+  },
+
+  /** Switch the live connection to another model: same backend, same key, no passphrase. */
+  async useModel(model: string): Promise<void> {
+    const current = state.connection
+    if (!current) throw new Error('Connect first.')
+    const connection = normalizeConnection({ ...snapshot(current), model: model.trim() })
+    const held = apiKey
+    await connectWith(connection, undefined, livePreset())
+    apiKey = held
+    const rec = vault.load()
+    if (rec) {
+      vault.save({ ...rec, connection: snapshot(connection), updated_at: new Date().toISOString() })
+      readVault()
+    }
+  },
+
   /** Tell the server to forget the key now. The encrypted copy stays in this browser. */
   async lock(): Promise<void> {
     apiKey = null
@@ -208,6 +237,21 @@ export const session = {
       state.connected = false
       state.has_key = false
     }
+  },
+
+  /**
+   * Erase everything Turbine keeps in this browser (saved connection and encrypted key, prompt
+   * draft, last document and job) and end the server session, which drops its cookie and any
+   * held key. The caller reloads so in-memory state starts fresh too.
+   */
+  async clearBrowserData(): Promise<void> {
+    apiKey = null
+    try {
+      await api.session.destroy()
+    } catch (e) {
+      Print('WARNING', `clear browser data: server session not ended: ${e instanceof Error ? e.message : String(e)}`)
+    }
+    for (const k of Object.keys(localStorage)) if (k.startsWith('turbine.')) localStorage.removeItem(k)
   },
 
   /** Wipe the browser vault and the server-side key. */

@@ -83,6 +83,14 @@ describe('HTTP routes (private deployment)', () => {
     const c4 = await json<SessionInfo>(await req('/api/session/connect', { method: 'POST', body: JSON.stringify({ preset: 'openrouter' }) }, cookie))
     expect(c4.connected).toBe(true)
     expect(c4.server_key).toBe(true)
+    expect(c4.connection?.model).toBe('x/y')
+    // The browser picks the model on a server connection; the URL stays the server's.
+    const pick = { ...REMOTE_CONNECTION, base_url: 'https://evil.example/v1', model: 'qwen/qwen3.6-30b-a3b', ctx_len: 40000 }
+    const c5 = await json<SessionInfo>(await req('/api/session/connect', { method: 'POST', body: JSON.stringify({ preset: 'openrouter', connection: pick }) }, cookie))
+    expect(c5.connected).toBe(true)
+    expect(c5.connection?.model).toBe('qwen/qwen3.6-30b-a3b')
+    expect(c5.connection?.ctx_len).toBe(40000)
+    expect(c5.connection?.base_url).toBe('https://openrouter.ai/api/v1')
 
     // Unknown API route is JSON 404; unknown page route is the SPA fallback (503 here since no bundle exists).
     expect((await req('/api/nope', {}, cookie)).status).toBe(404)

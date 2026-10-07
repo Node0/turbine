@@ -23,20 +23,28 @@ export interface ResolvedTarget {
   execution: Execution
 }
 
+function validConnection(spec: Partial<ConnectionSpec>): ConnectionSpec {
+  try {
+    return normalizeConnection(spec)
+  } catch (e) {
+    if (e instanceof ConnectionValidationError) throw badRequest(e.message, 'invalid-connection')
+    throw e
+  }
+}
+
 export function resolveTarget(ctx: ServerContext, body: Partial<ConnectRequest>): ResolvedTarget {
   if (typeof body.preset === 'string' && body.preset) {
     const sc = ctx.config.connections.find((c) => c.name === body.preset)
     if (!sc) throw notFound(`no server connection named '${body.preset}'`, 'unknown-preset')
-    return { connection: sc.connection, presetName: sc.name, serverKey: sc.apiKey, execution: decideExecution(ctx.config, sc.connection) }
+    // The server's entry fixes where requests go and with which key; the browser still chooses the model and its context budget.
+    const chosen = body.connection
+    const connection = chosen
+      ? validConnection({ ...sc.connection, model: chosen.model ?? sc.connection.model, ctx_len: chosen.ctx_len ?? sc.connection.ctx_len })
+      : sc.connection
+    return { connection, presetName: sc.name, serverKey: sc.apiKey, execution: decideExecution(ctx.config, connection) }
   }
   if (body.connection) {
-    let connection: ConnectionSpec
-    try {
-      connection = normalizeConnection(body.connection)
-    } catch (e) {
-      if (e instanceof ConnectionValidationError) throw badRequest(e.message, 'invalid-connection')
-      throw e
-    }
+    const connection = validConnection(body.connection)
     return { connection, presetName: null, serverKey: null, execution: decideExecution(ctx.config, connection) }
   }
   throw badRequest('provide either `connection` or `preset`', 'no-target')

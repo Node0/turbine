@@ -186,6 +186,9 @@ progress.bar::-moz-progress-bar { background: var(--accent); }
 /* connect page */
 .welcome .saved { margin: 0.6rem 0; padding: 0.6rem 0.8rem; background: var(--panel-2); border-radius: 6px; }
 .saved-line { display: flex; gap: 0.8rem; }
+.model-switch { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid var(--line); }
+.model-switch h2 { margin: 0 0 0.3rem; }
+.model-switch .model-input { min-width: 18rem; flex: 1 1 18rem; }
 .saved-line .k { min-width: 6rem; color: var(--muted); font-size: 0.85rem; }
 
 @media (max-width: 640px) {
