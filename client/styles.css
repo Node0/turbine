@@ -86,8 +86,6 @@ code { font-family: var(--mono); font-size: 0.9em; background: var(--panel-2); p
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem 1rem; }
 .panel-head { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
 .panel-head h2 { margin: 0; }
-/* the template compiler drops the space between adjacent inline spans (Node0/diamondjs#15); space them in CSS */
-.panel-head h2 .lbl + .muted { margin-left: 0.35rem; }
 .panel-head .btn { margin-left: auto; }
 .panel-head .spacer + .btn, .panel-head .btn + .btn { margin-left: 0.4rem; }
 .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.9rem; align-items: start; }

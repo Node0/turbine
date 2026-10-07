@@ -39,12 +39,12 @@ export class ModelParamsForm extends Component {
     root.className = 'params-form'
     this.root = root
     // Rebuild when the discovered model info (identity) or its status changes.
-    const stop = DiamondCore.effect(() => {
+    // The effect is inventoried by the mount scope; the last build's scope is not.
+    DiamondCore.effect(() => {
       const info = prompt.state.modelInfo
       const status = prompt.state.modelInfoStatus
       this.rebuild(info, status)
     })
-    this.registerCleanup(stop)
     this.registerCleanup(() => this.teardown?.())
     return root
   }

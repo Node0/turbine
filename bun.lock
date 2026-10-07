@@ -5,12 +5,12 @@
     "": {
       "name": "turbine",
       "dependencies": {
-        "@diamondjs/app": "2.2.3",
+        "@diamondjs/app": "2.3.0",
         "elysia": "^1.4.30",
         "tiktoken": "^1.0.22",
       },
       "devDependencies": {
-        "@diamondjs/dev": "2.2.3",
+        "@diamondjs/dev": "2.3.0",
         "@types/bun": "^1.4.2",
         "typescript": "^5.5.0",
       },
@@ -19,21 +19,21 @@
   "packages": {
     "@borewit/text-codec": ["@borewit/text-codec@0.2.2", "", {}, "sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ=="],
 
-    "@diamondjs/app": ["@diamondjs/app@2.2.3", "", { "dependencies": { "@diamondjs/converters": "2.2.3", "@diamondjs/guards": "2.2.3", "@diamondjs/primafacie": "2.2.3", "@diamondjs/runtime": "2.2.3" } }, "sha512-JBBpxH3Np1mUQ0Nh1S0Hdkt5x3z2hB3PJoseissod1arj6FpaHJp6KZr12Z4CyneLqZUumTkrn8HTzRFfLnCZA=="],
+    "@diamondjs/app": ["@diamondjs/app@2.3.0", "", { "dependencies": { "@diamondjs/converters": "2.3.0", "@diamondjs/guards": "2.3.0", "@diamondjs/primafacie": "2.3.0", "@diamondjs/runtime": "2.3.0" } }, "sha512-TupZl4GokPEbIhg9qNwDtiBuWIwBGD3J8RPAa5fE22vScAGVB17/jXVR/smWE5HUaXXXpf6AcQ3JoWNtmBhFBQ=="],
 
-    "@diamondjs/compiler": ["@diamondjs/compiler@2.2.3", "", { "dependencies": { "@diamondjs/runtime": "^2.2.3", "parse5": "^7.1.2" } }, "sha512-GDwN1l/YeHaFbaulTJwLnmTwQP8A5fxnbMJA+/UnXuXZDHD57KVnEQjfH99VjHBvi7m4bTD344UWr77ERKEYgQ=="],
+    "@diamondjs/compiler": ["@diamondjs/compiler@2.3.0", "", { "dependencies": { "@diamondjs/runtime": "^2.3.0", "parse5": "^7.1.2" } }, "sha512-KgqcfCJhxDdjqglVvL4qOteUP5WN4DaeNzil+FxVrdQWN8zhfMpp+dLQq5AjW+3R58fqotN+aRuZgNG8ROzQ4Q=="],
 
-    "@diamondjs/converters": ["@diamondjs/converters@2.2.3", "", { "dependencies": { "@diamondjs/runtime": "^2.2.3" } }, "sha512-Z9AeYvxT7BxTf5kqKSVURYBmEA4PQlYUmFkIYshRRSx4f1T8Roax4ag6bYKcLRVOF5f7uy26M45ozhbbsVc85w=="],
+    "@diamondjs/converters": ["@diamondjs/converters@2.3.0", "", { "dependencies": { "@diamondjs/runtime": "^2.3.0" } }, "sha512-1Z2jnzz0OfdDqNNTFy/zrJA+ifFmsxwwaNhQVBSHEGS0pGoW8YdcQJa4LtslzV8gsb3lJZkb1HBWsVecqF7DeA=="],
 
-    "@diamondjs/dev": ["@diamondjs/dev@2.2.3", "", { "dependencies": { "@diamondjs/compiler": "2.2.3", "@diamondjs/parcel-transformer-diamond": "2.2.3", "@diamondjs/primafacie": "2.2.3", "@diamondjs/runtime": "2.2.3", "parcel": "^2.12.0", "tsx": "^4.7.0", "typescript": "^5.5.0" }, "bin": { "route-check": "dist/bin/route-check.mjs", "stink-check": "dist/bin/stink-check.mjs" } }, "sha512-ZBLMii4MeXtjLcbDvTFKmYWE2QD7SXMtsUHZzSLuu5stKZmjQ1TSv88r9iWX7JJ6hx2SzG4CXyQihdgF/ZPOaQ=="],
+    "@diamondjs/dev": ["@diamondjs/dev@2.3.0", "", { "dependencies": { "@diamondjs/compiler": "2.3.0", "@diamondjs/parcel-transformer-diamond": "2.3.0", "@diamondjs/primafacie": "2.3.0", "@diamondjs/runtime": "2.3.0", "parcel": "^2.12.0", "tsx": "^4.23.15", "typescript": "^5.5.0" }, "bin": { "route-check": "dist/bin/route-check.mjs", "stink-check": "dist/bin/stink-check.mjs" } }, "sha512-wslKm8afFAgknTU/Lbl1aMxPou9gqQPB3nqxZSfP+kGLFeBS2TWO6643eAVgjqbMQPfp0fopE3dXzvC0310NYg=="],
 
-    "@diamondjs/guards": ["@diamondjs/guards@2.2.3", "", { "dependencies": { "@diamondjs/runtime": "^2.2.3" } }, "sha512-jHvNzB0qdKfGFk0p+GxleCuerZBe2In4l8Df/2yFmUofTbcYuD2Ec19sW1HhTad6cOVUKuL1lR2pBrZzdJxICA=="],
+    "@diamondjs/guards": ["@diamondjs/guards@2.3.0", "", { "dependencies": { "@diamondjs/runtime": "^2.3.0" } }, "sha512-qoGrppqYeURuWtG5btsJzRNdptiVb8zRXiATpIedDta8HpOrbJte6jaNEpkeHucQZ2ZSQRxo5I98VjOFbanEQQ=="],
 
-    "@diamondjs/parcel-transformer-diamond": ["@diamondjs/parcel-transformer-diamond@2.2.3", "", { "dependencies": { "@diamondjs/compiler": "^2.2.3", "@diamondjs/primafacie": "^2.2.3", "@parcel/plugin": "^2.12.0" }, "peerDependencies": { "@parcel/core": "^2.12.0" } }, "sha512-uuO0y0OdmZj0k6C0VQGqGgAacYZRu4EF5Sxg3F1F1gfmyrC4CUlygmsQ1ugmLDLZplH2OaSVVSvGS4F40keDsA=="],
+    "@diamondjs/parcel-transformer-diamond": ["@diamondjs/parcel-transformer-diamond@2.3.0", "", { "dependencies": { "@diamondjs/compiler": "^2.3.0", "@diamondjs/primafacie": "^2.3.0", "@parcel/plugin": "^2.12.0" }, "peerDependencies": { "@parcel/core": "^2.12.0" } }, "sha512-CCnIMwfuQlHCwdwdwDD1AWHIIqDNsJp1IvtlA4rnG0udAcE0QIZduEgmSYF+Oh9TYd43eL/CFq+ibExnFWEGBg=="],
 
-    "@diamondjs/primafacie": ["@diamondjs/primafacie@2.2.3", "", {}, "sha512-dKnFHFUkSRBnn9kWCEr5JvBCWYvB7SaM70Et/arBu/VcGBpDBR+g80zicd6RB+Mx5jV03E2b5g82pUvQyKQQQw=="],
+    "@diamondjs/primafacie": ["@diamondjs/primafacie@2.3.0", "", {}, "sha512-3atabT9W21QPKae0VjTHGdyBIzc6CnXicmQ/wwA+0J3iROnEHxsmX6R16g8Csa+y8ri5PdprY6kUlWJqT9nbmA=="],
 
-    "@diamondjs/runtime": ["@diamondjs/runtime@2.2.3", "", { "dependencies": { "@diamondjs/primafacie": "^2.2.3" } }, "sha512-gU8Wpmx9JmMcuSOpB225KbVmLS8T5/OXCoDgDRCikPD7fESS6rWPzqAUSXSorYiIp122TtYLoQv4SlU7BNtGYA=="],
+    "@diamondjs/runtime": ["@diamondjs/runtime@2.3.0", "", { "dependencies": { "@diamondjs/primafacie": "^2.3.0" } }, "sha512-k9J1HGSoGOAsR2+x0/Uj6mHZhGPmTMkF/clUyWDMKT1j4G66iE6qzUt9pXZDcsrgCw76sX8ZvmFMGrzN30+uFg=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.28.2", "", { "os": "aix", "cpu": "ppc64" }, "sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ=="],
 

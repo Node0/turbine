@@ -1,5 +1,5 @@
 /** SourcePage — upload the document, see its shape, pick a selection. */
-import { Component, reactive } from '@diamondjs/runtime'
+import { Component, DiamondCore, reactive } from '@diamondjs/runtime'
 import * as T from './source.diamond.html'
 import { SourceViewer } from '../../components/source-viewer.ts'
 import { documents } from '../../services/documents.ts'
@@ -8,25 +8,23 @@ import { prompt } from '../../services/prompt.ts'
 import { tip as tipText } from '../../services/tooltips.ts'
 import { tokenizerState } from '../../services/tokenizer.ts'
 
+const template = (T as unknown as { createTemplate: (this: SourcePage) => HTMLElement }).createTemplate
+
 export class SourcePage extends Component {
-  createTemplate = (T as unknown as { createTemplate: (this: SourcePage) => HTMLElement }).createTemplate
   private viewer = new SourceViewer()
   @reactive dragging = false
 
-  constructor(_params?: Record<string, unknown>) {
-    super()
+  /** The viewer is a child: mounted child-first when the page connects, disposed with the page. */
+  override createTemplate(): HTMLElement {
+    const root = template.call(this)
+    const slot = root.querySelector<HTMLElement>('.viewer-host')
+    if (slot) DiamondCore.child(this.viewer, slot)
+    return root
+  }
+
+  /** The page is showing: only now does its tab light up (a guard or failed commit never gets here). */
+  override mounted(): void {
     ui.activeTab = 'source'
-  }
-
-  override mount(host: HTMLElement): void {
-    super.mount(host)
-    const slot = this.getElement()?.querySelector<HTMLElement>('.viewer-host')
-    if (slot) this.viewer.mount(slot)
-  }
-
-  override unmount(): void {
-    this.viewer.unmount()
-    super.unmount()
   }
 
   get dropClass(): string {

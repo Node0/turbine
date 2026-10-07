@@ -2,8 +2,8 @@ import { Component } from '@diamondjs/runtime'
 import { ui } from '../services/nav.ts'
 
 export class NotFoundPage extends Component {
-  constructor(_params?: Record<string, unknown>) {
-    super()
+  /** The page is showing: only now does the tab highlight clear (a guard or failed commit never gets here). */
+  override mounted(): void {
     ui.activeTab = ''
   }
   override createTemplate(): HTMLElement {
