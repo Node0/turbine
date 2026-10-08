@@ -118,6 +118,7 @@ function chipDetail(r: WindowRecord): string {
   const parts = [`window ${r.index + 1}: ${r.status}`]
   if (r.validation.kind !== 'none') parts.push(`${r.validation.kind}${r.validation.score !== undefined ? ` ${r.validation.score}` : ''}`)
   if (r.error) parts.push(r.error)
+  if (r.scrubbed?.length) parts.push(`removed ${r.scrubbed.join('; ')}`)
   parts.push(`${r.attempt} attempt(s), ${Math.round(r.elapsed_ms / 1000)}s`)
   return parts.join(' · ')
 }

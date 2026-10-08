@@ -86,6 +86,10 @@ code { font-family: var(--mono); font-size: 0.9em; background: var(--panel-2); p
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem 1rem; }
 .panel-head { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
 .panel-head h2 { margin: 0; }
+.disclosure { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 4px; }
+.disclosure:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.disclosure .caret { display: inline-block; font-size: 0.7em; color: var(--muted); transition: transform 0.15s ease; }
+.disclosure[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .panel-head .btn { margin-left: auto; }
 .panel-head .spacer + .btn, .panel-head .btn + .btn { margin-left: 0.4rem; }
 .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.9rem; align-items: start; }

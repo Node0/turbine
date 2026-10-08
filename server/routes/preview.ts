@@ -11,7 +11,7 @@
 import { Elysia } from 'elysia'
 import type { PreviewEvent, PreviewMessages, PreviewRequest } from '../../shared/api.ts'
 import { validateJobSpec } from '../../shared/defaults.ts'
-import { buildMessages, cleanOutput, estimatePlan, planFromSelection, validateWindow } from '../../shared/engine/index.ts'
+import { buildMessages, cleanOutput, estimatePlan, planFromSelection, specScaffold, validateWindow } from '../../shared/engine/index.ts'
 import type { JobSpec } from '../../shared/types.ts'
 import type { ServerContext } from '../context.ts'
 import { badRequest, conflict } from '../errors.ts'
@@ -80,8 +80,8 @@ export function previewRoutes(ctx: ServerContext) {
                 signal: request.signal,
                 onToken: (chunk) => send({ type: 'token', chunk }),
               })
-              const output = cleanOutput(result.text)
-              send({ type: 'done', output, elapsed_ms: result.elapsed_ms, model: result.model, validation: validateWindow(p.spec.validator, p.focusText, output), usage: result.usage })
+              const { text: output, removed } = cleanOutput(result.text, specScaffold(p.spec))
+              send({ type: 'done', output, elapsed_ms: result.elapsed_ms, model: result.model, validation: validateWindow(p.spec.validator, p.focusText, output), usage: result.usage, ...(removed.length ? { scrubbed: removed } : {}) })
             } catch (e) {
               send({ type: 'error', error: errorMessage(e) })
             } finally {

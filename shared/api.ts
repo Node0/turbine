@@ -175,7 +175,7 @@ export interface PreviewMessages {
 export type PreviewEvent =
   | { type: 'messages'; messages: ChatMessage[]; window: WindowPlan }
   | { type: 'token'; chunk: string }
-  | { type: 'done'; output: string; elapsed_ms: number; model: string; validation: ValidationResult; usage?: TokenUsage }
+  | { type: 'done'; output: string; elapsed_ms: number; model: string; validation: ValidationResult; usage?: TokenUsage; scrubbed?: string[] }
   | { type: 'error'; error: string }
 
 // ─── Jobs ────────────────────────────────────────────────────────────────────

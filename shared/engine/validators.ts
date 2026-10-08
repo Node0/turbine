@@ -2,33 +2,16 @@
  * shared/engine/validators.ts — pluggable output checks.
  *
  *   none          accept anything
- *   conserve      the output, with Markdown syntax stripped, must still read as
- *                 the input text (word-sequence similarity ≥ threshold). This is
+ *   conserve      the output must still read as the input text, both with
+ *                 Markdown syntax stripped (word-sequence similarity ≥ threshold). This is
  *                 the guard for formatting passes over an embeddings corpus:
  *                 you want Darwin's words, not the formatting model's.
  *   length-ratio  output length / focus length must fall inside [min, max]
  */
 
+import { lcs } from 'fast-myers-diff'
+import { stripMarkdown } from '../formats/markdown.ts'
 import type { ValidationResult, ValidatorSpec } from '../types.ts'
-
-export function stripMarkdown(s: string): string {
-  return s
-    .replace(/```[\w-]*\n?/g, '') // fences
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '') // headings
-    .replace(/^\s{0,3}>\s?/gm, '') // blockquotes
-    .replace(/^\s*[-*+]\s+/gm, '') // bullets
-    .replace(/^\s*\d+[.)]\s+/gm, '') // numbered lists
-    .replace(/^\s*\|?[\s:|-]+\|?\s*$/gm, '') // table rules
-    .replace(/\|/g, ' ') // table pipes
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1') // images
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // links
-    .replace(/\[\^[^\]]*\]/g, '') // footnote refs
-    .replace(/(\*\*|__)(.*?)\1/g, '$2') // bold
-    .replace(/(\*|_)(.*?)\1/g, '$2') // italics
-    .replace(/`([^`]*)`/g, '$1') // inline code
-    .replace(/<[^>]+>/g, '') // stray tags
-    .replace(/\\([\\`*_{}[\]()#+\-.!|>])/g, '$1') // escapes
-}
 
 const QUOTES: Record<string, string> = { '“': '"', '”': '"', '‘': "'", '’': "'", '—': '-', '–': '-', '…': '...' }
 
@@ -44,28 +27,23 @@ export function normalizeForCompare(s: string): string {
 
 /**
  * 2·LCS / (|a| + |b|) over word arrays — order-sensitive, insertion/deletion
- * tolerant. Two-row DP, bounded so a pathological window can't hang a worker.
+ * tolerant. Myers' O((N+M)·D) diff: near-linear when the output is close to the
+ * focus (the normal case), quadratic only for unrelated text. The cap bounds
+ * that worst case so a pathological window can't hang a worker.
  */
 export function sequenceSimilarity(a: string[], b: string[], cap = 12_000): number {
   if (a.length === 0 && b.length === 0) return 1
   if (a.length === 0 || b.length === 0) return 0
   const x = a.length > cap ? a.slice(0, cap) : a
   const y = b.length > cap ? b.slice(0, cap) : b
-  let prev = new Uint32Array(y.length + 1)
-  let cur = new Uint32Array(y.length + 1)
-  for (let i = 1; i <= x.length; i++) {
-    const xi = x[i - 1]
-    for (let j = 1; j <= y.length; j++) {
-      cur[j] = xi === y[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1])
-    }
-    ;[prev, cur] = [cur, prev]
-  }
-  const lcs = prev[y.length]
-  return (2 * lcs) / (x.length + y.length)
+  let common = 0
+  for (const [, , len] of lcs(x, y)) common += len
+  return (2 * common) / (x.length + y.length)
 }
 
 export function conserveScore(focus: string, output: string): number {
-  const a = normalizeForCompare(focus).split(' ').filter(Boolean)
+  // Both sides go through the same steps, so a faithful copy scores 1 by construction.
+  const a = normalizeForCompare(stripMarkdown(focus)).split(' ').filter(Boolean)
   const b = normalizeForCompare(stripMarkdown(output)).split(' ').filter(Boolean)
   return sequenceSimilarity(a, b)
 }

@@ -109,7 +109,13 @@ The header shows where inference is running at all times ("OpenRouter · model" 
 Two text boxes define what the model sees:
 
 - **Instructions** are the system prompt. The default is a careful copy editor converting plain text to Markdown without paraphrasing.
-- **Window template** is the user message, rendered once per window. Variables: `{{context_before}}`, `{{focus}}`, `{{context_after}}`, `{{carry}}`, `{{window_index}}`, `{{window_count}}`, `{{source_name}}`. Blocks like `{{#carry}}…{{/carry}}` render only when the variable is non-empty, so the same template works for both map and fold modes.
+- **Window template** is the user message, rendered once per window. Variables: `{{context_before}}`, `{{focus}}`, `{{context_after}}`, `{{carry}}`, `{{window_index}}`, `{{window_count}}`, `{{source_name}}`. Conditionals keep one template working for both map and fold modes:
+
+  ```
+  {% if carry %} … {% else-if context_before %} … {% else %} … {% end-if carry %}
+  ```
+
+  `{% if name %}` renders when the variable is non-empty (not `''`, `0` or missing) and `{% if not name %}` when it is empty. `{% end-if %}` repeats the variable it closes, so a mismatched block is a clear error, not a silently wrong prompt. A tag alone on its line removes the whole line. Values are inserted as plain text and never parsed again, so a document containing `{{ … }}` or `{% … %}` passes through untouched. A `{%` that isn't a valid tag is an error with a line and column; the editor shows it and Preview and Start stay disabled until it's fixed. Templates saved in the older `{{#name}}…{{/name}}` style are converted when loaded.
 
 **Pick a focus** lets you choose any window from the plan (or jump to a percentage of the document) and **Run preview** sends exactly that window to the backend. The *Rendered messages* disclosure shows the literal system and user messages the model received, so there is no guessing about what the template expanded to.
 
@@ -185,15 +191,17 @@ Every other knob is a descriptor with bounds and plain-language help. A cleared 
 
 ## Validators
 
+Before any check, the reply is cleaned of Turbine's own scaffolding, so none of it is stored, carried into the next window or scored. The scaffolding is worked out from the template in use, not guessed: tags that wrap `{{focus}}` (`<focus>` by default) are unwrapped; tags that wrap anything else (`<context_before>`, `<context_after>`, `<previous_output_tail>`, or your own) are removed along with whatever the model echoed inside them; and a line that repeats an instruction line from the template or the system prompt word for word is removed. Anything removed is listed in the window's details and the preview summary.
+
 Each window's output can be checked before it is accepted. A failed check retries at a lower temperature up to *Attempts per window* times, then the window is **flagged**: its last output is kept but marked, never silently accepted. A window whose every attempt produced nothing is marked **failed** instead.
 
 | Validator | What it checks | Use it when |
 |---|---|---|
 | **none** | nothing | you trust the model, or the task is a free rewrite |
-| **conserve** | the words of the output, with Markdown stripped, still match the words of the input | the model must *format*, not *rewrite*: Markdown conversion, heading promotion, paragraph rejoining |
+| **conserve** | the words of the output still match the words of the input, with Markdown stripped from both | the model must *format*, not *rewrite*: Markdown conversion, heading promotion, paragraph rejoining |
 | **length-ratio** | the output's length is within a configurable band of the input's | translation, light editing, anything where drift in size signals a problem |
 
-**Min similarity** (the conserve validator) strips Markdown from the output, normalises case, quotes, dashes and punctuation on both sides, splits into words, and scores `2·LCS / (|input| + |output|)` where LCS is the longest common subsequence of words. 1.0 means every word survived in order; 0.95 tolerates roughly one word in twenty added, dropped or changed.
+**Min similarity** (the conserve validator) puts both sides through the same steps, so a verbatim copy always scores 1.0. It strips the Markdown that hides letters a reader never sees (HTML tags, link and image URLs, fence language names, entity names), keeping code literally and keeping any `<` or `>` that isn't a tag or autolink as text. It then normalises case, quotes, dashes and punctuation, splits into words, and scores `2·LCS / (|input| + |output|)` where LCS is the longest common subsequence of words. 1.0 means every word survived in order; 0.95 tolerates roughly one word in twenty added, dropped or changed.
 
 ---
 
@@ -285,7 +293,8 @@ turbine/
 │   ├── api.ts               the HTTP/WS contract, every route in one comment block
 │   ├── defaults.ts          defaultJobSpec / validateJobSpec
 │   ├── providers/           registry keyed by api_type; openai / ollama / anthropic; presets; parameter discovery
-│   └── engine/              planner, template, validators, runner (async generator), assemble
+│   ├── engine/              planner, template, validators, runner (async generator), assemble
+│   └── formats/             output-format knowledge kept out of the engine: markdown.ts (comparison cleanup)
 ├── server/                  Elysia: sessions, key vault, docs, jobs, WS fan-out, static
 ├── client/                  DiamondJS: shell, routes, guards, services, pages, source viewer
 │   └── tooltips.json        hover help, view → component → field

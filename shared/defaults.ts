@@ -6,7 +6,7 @@
 import type { CarrySpec, JobSpec, ReasoningSetting, RunMode, SnapMode, ValidatorSpec } from './types.ts'
 import { sanitizeParams } from './providers/params.ts'
 import { charsForTokens } from './engine/tokens.ts'
-import { DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_TEMPLATE } from './engine/template.ts'
+import { checkTemplate, DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_TEMPLATE, migrateLegacyTemplate } from './engine/template.ts'
 
 /** The shape of config.json → window_defaults. Token-denominated where the UI is. */
 export interface WindowDefaults {
@@ -82,10 +82,13 @@ export function validateJobSpec(input: unknown, limits: { max_concurrency: numbe
   const mode = s.mode === 'fold' ? 'fold' : 'map'
   const snap: SnapMode = win.snap === 'sentence' ? 'sentence' : win.snap === 'none' ? 'none' : 'paragraph'
   const vkind: ValidatorSpec['kind'] = val.kind === 'conserve' ? 'conserve' : val.kind === 'length-ratio' ? 'length-ratio' : 'none'
+  const userTemplate = migrateLegacyTemplate(str('userTemplate'))
+  const template = checkTemplate(userTemplate)
+  if (template.error) throw new Error(`spec.userTemplate: ${template.error.message}`)
   return {
     sourceName: str('sourceName', 512) || 'document',
     systemPrompt: str('systemPrompt'),
-    userTemplate: str('userTemplate'),
+    userTemplate,
     window: {
       focusChars: Math.floor(num(win.focusChars, 'window.focusChars', 16, 2_000_000)),
       contextBeforeChars: Math.floor(num(win.contextBeforeChars ?? 0, 'window.contextBeforeChars', 0, 2_000_000)),

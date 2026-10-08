@@ -11,7 +11,7 @@ import { api } from './api.ts'
 import { defaultJobSpec, FALLBACK_WINDOW_DEFAULTS } from '../../shared/defaults.ts'
 import { estimatePlan, planWindows } from '../../shared/engine/planner.ts'
 import { CHARS_PER_TOKEN, charsForTokens, sanitizeCharsPerToken, tokensForChars } from '../../shared/engine/tokens.ts'
-import { unknownTemplateVariables } from '../../shared/engine/template.ts'
+import { checkTemplate, migrateLegacyTemplate } from '../../shared/engine/template.ts'
 import { documents } from './documents.ts'
 import { session } from './session.ts'
 import { countTokensMemo, sampleCharsPerToken, tokenizerState } from './tokenizer.ts'
@@ -29,6 +29,8 @@ export interface PromptState {
   /** Measured by the last preview: output characters per second. Drives the ETA. */
   measuredCps: number | null
   unknownVars: string[]
+  /** The window template's syntax error, or '' when it parses. */
+  templateError: string
   onlySelection: boolean
   initialized: boolean
   /** Chars per token used for every estimate; calibrated from the tokenizer, then from the model's own usage. */
@@ -58,6 +60,7 @@ function loadPersisted(): Persisted | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<Persisted>
     if (!parsed.spec || typeof parsed.spec.userTemplate !== 'string') return null
+    parsed.spec.userTemplate = migrateLegacyTemplate(parsed.spec.userTemplate)
     return { spec: parsed.spec, measuredCps: parsed.measuredCps ?? null, charsPerToken: parsed.charsPerToken, cptSource: parsed.cptSource, maxTokensAuto: parsed.maxTokensAuto }
   } catch {
     return null
@@ -76,6 +79,7 @@ export const state = DiamondCore.reactive<PromptState>({
   planning: false,
   measuredCps: null,
   unknownVars: [],
+  templateError: '',
   onlySelection: false,
   initialized: false,
   charsPerToken: CHARS_PER_TOKEN,
@@ -154,7 +158,9 @@ function planNow(): void {
       state.estimate = null
     }
   }
-  state.unknownVars = unknownTemplateVariables(spec.userTemplate)
+  const template = checkTemplate(spec.userTemplate)
+  state.unknownVars = template.unknown
+  state.templateError = template.error?.message ?? ''
   state.planning = false
   state.planVersion++
 }

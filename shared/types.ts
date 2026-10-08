@@ -283,6 +283,8 @@ export interface WindowRecord {
   usage?: TokenUsage
   validation: ValidationResult
   error?: string
+  /** Turbine scaffolding removed from the model's reply before validation (see template.ts scrubOutput). */
+  scrubbed?: string[]
 }
 
 export interface PlanEstimate {

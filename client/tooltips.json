@@ -30,7 +30,7 @@
       "reset": "Restore Turbine's default prompts: careful Markdown cleanup that preserves the author's words."
     },
     "template": {
-      "user": "How each window is packaged for the model. {{focus}} is the slice to transform; the context blocks are read-only neighbours; anything inside {{#name}}…{{/name}} appears only when that variable has content.",
+      "user": "How each window is packaged for the model. {{focus}} is the slice to transform; the context blocks are read-only neighbours; anything inside {% if name %}…{% end-if name %} appears only when that variable has content.",
       "chips": "Click to insert this variable at the cursor."
     },
     "window": {

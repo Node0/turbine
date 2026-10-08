@@ -9,7 +9,7 @@ import * as T from './prompt.diamond.html'
 import type { ChatMessage, WindowPlan } from '../../../shared/types.ts'
 import type { PreviewEvent } from '../../../shared/api.ts'
 import { planFromSelection } from '../../../shared/engine/planner.ts'
-import { buildMessages, cleanOutput } from '../../../shared/engine/runner.ts'
+import { buildMessages, cleanOutput, specScaffold } from '../../../shared/engine/runner.ts'
 import { TEMPLATE_VARS } from '../../../shared/engine/template.ts'
 import { validateWindow } from '../../../shared/engine/validators.ts'
 import { SourceViewer } from '../../components/source-viewer.ts'
@@ -40,6 +40,17 @@ function fmtDuration(ms: number | null): string {
 
 const template = (T as unknown as { createTemplate: (this: PromptPage) => HTMLElement }).createTemplate
 
+/** Remembers whether Model parameters is unfurled; a per-browser convenience, so storage failures are ignored. */
+const PARAMS_OPEN_KEY = 'turbine.ui.params_open'
+
+function loadParamsOpen(): boolean {
+  try {
+    return localStorage.getItem(PARAMS_OPEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export class PromptPage extends Component {
   private viewer = new SourceViewer({ compact: true })
   private paramsForm = new ModelParamsForm()
@@ -59,6 +70,7 @@ export class PromptPage extends Component {
   @reactive genTokens = 0
   @reactive genExact = false
   @reactive genFinal = ''
+  @reactive paramsOpen = loadParamsOpen()
 
   readonly templateVars: string[] = [...TEMPLATE_VARS].map((v) => `{{${v}}}`)
 
@@ -108,8 +120,22 @@ export class PromptPage extends Component {
   set userTemplate(v: unknown) {
     prompt.state.spec.userTemplate = String(v ?? '')
   }
+  get paramsOpenAttr(): string {
+    return String(this.paramsOpen)
+  }
+  toggleParams(): void {
+    this.paramsOpen = !this.paramsOpen
+    try {
+      localStorage.setItem(PARAMS_OPEN_KEY, this.paramsOpen ? '1' : '0')
+    } catch {
+      /* storage unavailable */
+    }
+  }
   get unknownVars(): string {
     return prompt.state.unknownVars.join(', ')
+  }
+  get templateError(): string {
+    return prompt.state.templateError
   }
   insertVar(v: string): void {
     const el = this.lastUserTemplateEl
@@ -340,7 +366,7 @@ export class PromptPage extends Component {
       : 'Time estimate assumes ~20 s per window until a preview measures the real speed.'
   }
   get canStart(): boolean {
-    return this.hasDoc && !this.starting && !this.overBudget && (prompt.state.estimate?.window_count ?? 0) > 0 && session.state.connected && !job.isActive
+    return this.hasDoc && !this.starting && !this.overBudget && !prompt.state.templateError && (prompt.state.estimate?.window_count ?? 0) > 0 && session.state.connected && !job.isActive
   }
   get startLabel(): string {
     if (this.starting) return 'Starting…'
@@ -406,7 +432,7 @@ export class PromptPage extends Component {
   }
   get canPreview(): boolean {
     void prompt.state.planVersion
-    return this.hasDoc && !this.previewing && session.state.connected && prompt.previewFocus() !== null
+    return this.hasDoc && !this.previewing && !prompt.state.templateError && session.state.connected && prompt.previewFocus() !== null
   }
   get previewWhere(): string {
     const ex = session.state.execution
@@ -456,11 +482,11 @@ export class PromptPage extends Component {
             this.tail.stick()
           },
         })
-        const output = cleanOutput(result.text)
+        const { text: output, removed } = cleanOutput(result.text, specScaffold(spec))
         this.previewOutput = output
         this.tail.stick()
         const validation = validateWindow(spec.validator, text.slice(w.focusStart, w.focusEnd).trim(), output)
-        this.finishPreview(output, result.elapsed_ms, result.model, validation.ok ? `validation ok${validation.score !== undefined ? ` (${validation.score})` : ''}` : `validation FAILED: ${validation.reason}`, result.usage)
+        this.finishPreview(output, result.elapsed_ms, result.model, validation.ok ? `validation ok${validation.score !== undefined ? ` (${validation.score})` : ''}` : `validation FAILED: ${validation.reason}`, result.usage, removed)
       } else {
         await api.preview.stream(
           { doc_id: doc.id, spec, focus },
@@ -477,7 +503,7 @@ export class PromptPage extends Component {
               case 'done':
                 this.previewOutput = ev.output
                 this.tail.stick()
-                this.finishPreview(ev.output, ev.elapsed_ms, ev.model, ev.validation.ok ? `validation ok${ev.validation.score !== undefined ? ` (${ev.validation.score})` : ''}` : `validation FAILED: ${ev.validation.reason}`, ev.usage)
+                this.finishPreview(ev.output, ev.elapsed_ms, ev.model, ev.validation.ok ? `validation ok${ev.validation.score !== undefined ? ` (${ev.validation.score})` : ''}` : `validation FAILED: ${ev.validation.reason}`, ev.usage, ev.scrubbed)
                 break
               case 'error':
                 this.previewError = ev.error
@@ -504,7 +530,7 @@ export class PromptPage extends Component {
     }
   }
 
-  private finishPreview(output: string, elapsedMs: number, model: string, validationNote: string, usage?: { prompt_tokens?: number; completion_tokens?: number }): void {
+  private finishPreview(output: string, elapsedMs: number, model: string, validationNote: string, usage?: { prompt_tokens?: number; completion_tokens?: number }, scrubbed: string[] = []): void {
     prompt.recordMeasurement(output.length, elapsedMs)
     prompt.recordUsage(this.promptChars, usage?.prompt_tokens)
     const out = usage?.completion_tokens
@@ -517,7 +543,8 @@ export class PromptPage extends Component {
       }
     }
     const tps = out && elapsedMs > 0 ? ` · ${(out / (elapsedMs / 1000)).toFixed(1)} tok/s` : ''
-    this.previewMeta = `${model} · ${fmtDuration(elapsedMs)}${tps} · ${output.length.toLocaleString()} chars · ${validationNote}`
+    const removed = scrubbed.length ? ` · removed ${scrubbed.join('; ')}` : ''
+    this.previewMeta = `${model} · ${fmtDuration(elapsedMs)}${tps} · ${output.length.toLocaleString()} chars · ${validationNote}${removed}`
     Print('SUCCESS', `preview done in ${Math.round(elapsedMs)} ms`)
   }
 

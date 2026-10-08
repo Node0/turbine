@@ -7,6 +7,7 @@
       "dependencies": {
         "@diamondjs/app": "2.3.0",
         "elysia": "^1.4.30",
+        "fast-myers-diff": "3.2.0",
         "tiktoken": "^1.0.22",
       },
       "devDependencies": {
@@ -360,6 +361,8 @@
     "exact-mirror": ["exact-mirror@0.2.7", "", { "peerDependencies": { "@sinclair/typebox": "^0.34.15" }, "optionalPeers": ["@sinclair/typebox"] }, "sha512-+MeEmDcLA4o/vjK2zujgk+1VTxPR4hdp23qLqkWfStbECtAq9gmsvQa3LW6z/0GXZyHJobrCnmy1cdeE7BjsYg=="],
 
     "fast-decode-uri-component": ["fast-decode-uri-component@1.0.1", "", {}, "sha512-WKgKWg5eUxvRZGwW8FvfbaH7AXSh2cL+3j5fMGzUMCxWBJ3dV3a7Wz8y2f/uQ0e3B6WmodD3oS54jTQ9HVTIIg=="],
+
+    "fast-myers-diff": ["fast-myers-diff@3.2.0", "", {}, "sha512-DxNm4a3gnV35AluvqjeAV3Zx3CAySs0tsaDjnex5JhnJAa2rxEUVCwmaL2gpz42ea1B+IJorlo7XLThXUaTQog=="],
 
     "file-type": ["file-type@22.1.1", "", { "dependencies": { "@tokenizer/inflate": "^0.4.1", "strtok3": "^10.3.5", "token-types": "^6.1.2", "uint8array-extras": "^1.5.0" } }, "sha512-sEB0oStmeLGtpmSAD88RDNuLsvhv4iC3u0lE25CUvfCULvj49xoQ3l3K525Vn+ZzsZ6DOLajQCV6RmhwwhqiJg=="],
 

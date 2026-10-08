@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { conserveScore, normalizeForCompare, sequenceSimilarity, stripMarkdown, validateWindow } from '../../shared/engine/validators.ts'
+import { stripMarkdown } from '../../shared/formats/markdown.ts'
+import { conserveScore, normalizeForCompare, sequenceSimilarity, validateWindow } from '../../shared/engine/validators.ts'
 
 describe('stripMarkdown / normalizeForCompare', () => {
   it('removes formatting but keeps words', () => {
@@ -8,6 +9,22 @@ describe('stripMarkdown / normalizeForCompare', () => {
   })
   it('unifies curly quotes and dashes', () => {
     expect(normalizeForCompare('“Hello” — it’s')).toBe(normalizeForCompare('"Hello" - it\'s'))
+  })
+})
+
+describe('conserve treats both sides the same', () => {
+  const prose = 'Where x < 5 holds, the rule -> applies.\n\n' + 'Then the matter rested for a time. '.repeat(40) + '\n\nUntil y > 3, said <darwin@down.house>, and set snake_case_name with `a_b_c`.'
+  it('scores a verbatim copy 1, whatever brackets and underscores it contains', () => {
+    expect(conserveScore(prose, prose)).toBe(1)
+  })
+  it('scores 1 when the model only adds markup around the same words', () => {
+    const src = 'See http://example.org for the 1 < 2 case.'
+    expect(conserveScore(src, 'See <http://example.org> for the `1 < 2` case.')).toBe(1)
+    expect(conserveScore('CHAPTER I', '## CHAPTER I')).toBe(1)
+  })
+  it('still catches a real omission', () => {
+    const cut = prose.replace('Then the matter rested for a time. '.repeat(40), 'Then the matter rested. ')
+    expect(validateWindow({ kind: 'conserve' }, prose, cut).ok).toBe(false)
   })
 })
 
