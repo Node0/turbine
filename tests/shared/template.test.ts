@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { checkTemplate, DEFAULT_USER_TEMPLATE, migrateLegacyTemplate, parseTemplate, renderTemplate, TemplateError } from '../../shared/engine/template.ts'
+import { checkTemplate, DEFAULT_USER_TEMPLATE, migrateLegacyTemplate, parseTemplate, renderTemplate, scaffoldOf, scrubOutput, TemplateError } from '../../shared/engine/template.ts'
 
 const errorOf = (src: string): TemplateError => {
   try {
@@ -134,3 +134,38 @@ describe('validateJobSpec and templates', () => {
   })
 })
 
+describe('scaffoldOf and scrubOutput', () => {
+  const custom = '<rules>\n{{style}}\n</rules>\n\n<passage>\n{{focus}}\n</passage>\n\nRewrite the passage per the rules above.'
+  it("derives scaffolding from the template in use, on top of the default's", () => {
+    const sc = scaffoldOf(custom, 'Be faithful to the source.\nOK.')
+    expect(sc.unwrap.sort()).toEqual(['focus', 'passage'])
+    expect(sc.drop.sort()).toEqual(['context_after', 'context_before', 'previous_output_tail', 'rules'])
+    expect(sc.lines).toContain('Rewrite the passage per the rules above.')
+    expect(sc.lines).toContain('Be faithful to the source.')
+    expect(sc.lines).not.toContain('OK.') // too short to be sure it's ours
+    expect(sc.lines.some((l) => l.includes('{{'))).toBe(false)
+  })
+  it('drops echoed read-only blocks with their content, unwraps the focus, removes stray tags and instruction lines', () => {
+    const sc = scaffoldOf(custom)
+    const raw = '<rules>\nno adverbs\n</rules>\n<passage>\nThe text, 1 < 2.\n\nSecond para.\n</passage>\nRewrite the passage per the rules above.\n</context_after>'
+    const { text, removed } = scrubOutput(raw, sc)
+    expect(text).toBe('The text, 1 < 2.\n\nSecond para.')
+    expect(removed).toEqual([
+      'echoed <rules> block (27 chars)',
+      '<passage> tag',
+      '</passage> tag',
+      '</context_after> tag',
+      'instruction line "Rewrite the passage per the rules above."',
+    ])
+  })
+  it('leaves clean output, and tags that are not ours, exactly as they were', () => {
+    const sc = scaffoldOf(DEFAULT_USER_TEMPLATE)
+    const clean = 'A <b>bold</b> claim:\n\n\n\n1 < 2 and 3 > 2.'
+    expect(scrubOutput(clean, sc)).toEqual({ text: clean, removed: [] })
+  })
+  it('only removes whole lines that repeat an instruction, not sentences that contain one', () => {
+    const sc = scaffoldOf(DEFAULT_USER_TEMPLATE)
+    const s = 'She wrote: Return only the transformed focus text. Then left.'
+    expect(scrubOutput(s, sc).text).toBe(s)
+  })
+})

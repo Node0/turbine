@@ -3,7 +3,8 @@ import { ProviderError } from '../../shared/types.ts'
 import type { ChatMessage, ConnectionSpec, GenerateOptions, GenerateResult, JobSpec, ModelInfo, Provider, WindowEvent, WindowRecord } from '../../shared/types.ts'
 import { assembleOutput, outputFilename } from '../../shared/engine/assemble.ts'
 import { planWindows } from '../../shared/engine/planner.ts'
-import { buildMessages, carryFrom, cleanOutput, runJob } from '../../shared/engine/runner.ts'
+import { buildMessages, carryFrom, cleanOutput, runJob, specScaffold } from '../../shared/engine/runner.ts'
+import { validateWindow } from '../../shared/engine/validators.ts'
 import { defaultJobSpec } from '../../shared/defaults.ts'
 
 const spec0: ConnectionSpec = { name: 'fake', api_type: 'openai', base_url: 'http://fake', model: 'fake-1', ctx_len: 8192, locality: 'local', requires_key: false }
@@ -218,10 +219,19 @@ describe('helpers', () => {
     expect(carryFrom('abcdef', spec('fold', { carry: { kind: 'tail', chars: 3 } }))).toBe('def')
     expect(carryFrom('abcdef', spec('fold', { carry: { kind: 'none', chars: 3 } }))).toBe('')
   })
-  it('cleanOutput strips a whole-output fence and echoed focus tags', () => {
-    expect(cleanOutput('```markdown\n# Hi\n```')).toBe('# Hi')
-    expect(cleanOutput('<focus>text</focus>')).toBe('text')
-    expect(cleanOutput('a ```b``` c')).toBe('a ```b``` c')
+  it('cleanOutput strips a whole-output fence and echoed scaffolding, and says so', () => {
+    const sc = specScaffold(spec('map'))
+    expect(cleanOutput('```markdown\n# Hi\n```', sc)).toEqual({ text: '# Hi', removed: ['whole-output code fence'] })
+    expect(cleanOutput('<focus>text</focus>', sc)).toEqual({ text: 'text', removed: ['<focus> tag', '</focus> tag'] })
+    expect(cleanOutput('a ```b``` c', sc)).toEqual({ text: 'a ```b``` c', removed: [] })
+  })
+  it('a faithful copy wrapped in echoed scaffolding passes the conserve validator once cleaned', () => {
+    const focus = 'He said that the matter ended there, and no more was heard of it. '.repeat(20).trim()
+    const raw = `<context_before>\nEarlier text the model repeated.\n</context_before>\n\n<focus>\n${focus}\n</focus>\n\n<context_after>\nLater text > here.\n</context_after>\n\nReturn only the transformed focus text.`
+    const { text, removed } = cleanOutput(raw, specScaffold(spec('map')))
+    expect(text).toBe(focus)
+    expect(removed).toHaveLength(5)
+    expect(validateWindow({ kind: 'conserve' }, focus, text).ok).toBe(true)
   })
   it('assembleOutput marks pending windows and names files with __', () => {
     const plan = planWindows('aaaa bbbb\n\ncccc dddd', { focusChars: 16, contextBeforeChars: 0, contextAfterChars: 0, snap: 'paragraph' })

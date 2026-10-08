@@ -234,6 +234,120 @@ export function checkTemplate(src: string): TemplateCheck {
   }
 }
 
+/**
+ * Scaffolding: everything Turbine itself puts around the document in a prompt.
+ * It must never reach the output. Derived from the template actually in use
+ * (plus the default's vocabulary, so switching templates mid-corpus is safe),
+ * never guessed by a model.
+ */
+export interface Scaffold {
+  /** Tags that wrap the focus: an echoed wrapper is removed and its content kept. */
+  unwrap: string[]
+  /** Tags that wrap read-only material (context, carry): an echoed block is removed with its content. */
+  drop: string[]
+  /** Instruction lines from the template and system prompt that must never appear in output. */
+  lines: string[]
+}
+
+const PAIRED_TAG_BEFORE = /<([A-Za-z][\w-]*)>\s*$/
+const PAIRED_TAG_AFTER = /^\s*<\/([A-Za-z][\w-]*)>/
+/** Instruction lines shorter than this many words could plausibly occur in a book; leave those alone. */
+const MIN_INSTRUCTION_WORDS = 4
+
+/** Tags that sit directly around a variable (`<x>{{var}}</x>`), recursing into conditionals. */
+function wrappers(nodes: Node[], found: Map<string, string>): void {
+  nodes.forEach((n, i) => {
+    if (n.kind === 'if') {
+      for (const b of n.branches) wrappers(b.body, found)
+      if (n.otherwise) wrappers(n.otherwise, found)
+      return
+    }
+    if (n.kind !== 'var') return
+    const before = nodes[i - 1]
+    const after = nodes[i + 1]
+    const open = before?.kind === 'text' ? PAIRED_TAG_BEFORE.exec(before.text)?.[1] : undefined
+    const close = after?.kind === 'text' ? PAIRED_TAG_AFTER.exec(after.text)?.[1] : undefined
+    if (open && open === close) found.set(open, n.name)
+  })
+}
+
+/** Lines of the template with no variable or tag on them: pure instruction text. */
+function literalLines(src: string, out: Set<string>): void {
+  for (const line of src.split('\n')) if (!line.includes('{{') && !line.includes('{%')) out.add(line)
+}
+
+function isInstruction(line: string): boolean {
+  const t = line.trim()
+  return t.split(/\s+/).length >= MIN_INSTRUCTION_WORDS && !/^<\/?[A-Za-z][\w-]*>$/.test(t)
+}
+
+/** The scaffolding of a template (and its system prompt). A template that doesn't parse contributes nothing of its own. */
+export function scaffoldOf(template: string, systemPrompt = ''): Scaffold {
+  const tags = new Map<string, string>()
+  const lines = new Set<string>()
+  for (const src of new Set([DEFAULT_USER_TEMPLATE, template])) {
+    try {
+      wrappers(parseTemplate(src).nodes, tags)
+      literalLines(src, lines)
+    } catch {
+      /* a malformed template never runs; the default's vocabulary still applies */
+    }
+  }
+  for (const line of systemPrompt.split('\n')) lines.add(line)
+  const unwrap = [...tags].filter(([, v]) => v === 'focus').map(([t]) => t)
+  const drop = [...tags].filter(([, v]) => v !== 'focus').map(([t]) => t)
+  return { unwrap, drop, lines: [...new Set([...lines].filter(isInstruction).map((l) => l.trim()))] }
+}
+
+export interface Scrubbed {
+  text: string
+  /** What was removed, for the window record and the preview; empty when the output was clean. */
+  removed: string[]
+}
+
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const excerpt = (s: string): string => (s.length > 60 ? `${s.slice(0, 57)}…` : s)
+
+/**
+ * Remove Turbine's own scaffolding from a model's output, in this order:
+ *   1. echoed read-only blocks (<context_before>…</context_before> etc.), content and all
+ *   2. focus wrappers (<focus>, </focus>), keeping what they wrap
+ *   3. any leftover lone scaffold tag (a truncated or half-echoed block)
+ *   4. whole lines that repeat an instruction line verbatim
+ * then collapse the blank lines that leaves behind.
+ */
+export function scrubOutput(raw: string, scaffold: Scaffold): Scrubbed {
+  const removed: string[] = []
+  let s = raw
+  for (const tag of scaffold.drop) {
+    const t = escapeRe(tag)
+    s = s.replace(new RegExp(`<${t}>[\\s\\S]*?</${t}>`, 'gi'), (m) => {
+      removed.push(`echoed <${tag}> block (${m.length.toLocaleString()} chars)`)
+      return ''
+    })
+  }
+  for (const tag of [...scaffold.unwrap, ...scaffold.drop]) {
+    const t = escapeRe(tag)
+    s = s.replace(new RegExp(`</?${t}>`, 'gi'), (m) => {
+      removed.push(`${m} tag`)
+      return ''
+    })
+  }
+  if (scaffold.lines.length) {
+    const instructions = new Set(scaffold.lines)
+    s = s
+      .split('\n')
+      .filter((line) => {
+        const hit = instructions.has(line.trim())
+        if (hit) removed.push(`instruction line "${excerpt(line.trim())}"`)
+        return !hit
+      })
+      .join('\n')
+  }
+  if (removed.length) s = s.replace(/\n{3,}/g, '\n\n').trim()
+  return { text: s, removed }
+}
+
 const LEGACY = /\{\{\s*([#^/])\s*([\w.-]+)\s*\}\}/g
 
 /**

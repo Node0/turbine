@@ -191,6 +191,8 @@ Every other knob is a descriptor with bounds and plain-language help. A cleared 
 
 ## Validators
 
+Before any check, the reply is cleaned of Turbine's own scaffolding, so none of it is stored, carried into the next window or scored. The scaffolding is worked out from the template in use, not guessed: tags that wrap `{{focus}}` (`<focus>` by default) are unwrapped; tags that wrap anything else (`<context_before>`, `<context_after>`, `<previous_output_tail>`, or your own) are removed along with whatever the model echoed inside them; and a line that repeats an instruction line from the template or the system prompt word for word is removed. Anything removed is listed in the window's details and the preview summary.
+
 Each window's output can be checked before it is accepted. A failed check retries at a lower temperature up to *Attempts per window* times, then the window is **flagged**: its last output is kept but marked, never silently accepted. A window whose every attempt produced nothing is marked **failed** instead.
 
 | Validator | What it checks | Use it when |

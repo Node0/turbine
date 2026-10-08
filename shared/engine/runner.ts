@@ -21,7 +21,7 @@ import type {
 import { assembleOutput } from './assemble.ts'
 import { sha256Hex } from './hash.ts'
 import { estimatePlan, planWindows } from './planner.ts'
-import { renderTemplate } from './template.ts'
+import { renderTemplate, scaffoldOf, scrubOutput, type Scaffold } from './template.ts'
 import { validateWindow } from './validators.ts'
 
 export interface RunControl {
@@ -88,13 +88,28 @@ export function carryFrom(previousOutput: string | undefined, spec: JobSpec): st
   return previousOutput.slice(-Math.max(0, spec.carry.chars)).trimStart()
 }
 
-/** Strip a whole-output code fence and echoed <focus> tags; models do both. */
-export function cleanOutput(raw: string): string {
+export interface CleanedOutput {
+  text: string
+  /** What was removed (a fence, echoed scaffolding); empty when the output was clean. */
+  removed: string[]
+}
+
+/** The scaffolding a spec's prompts put around the document; compute once per job, not per window. */
+export function specScaffold(spec: Pick<JobSpec, 'userTemplate' | 'systemPrompt'>): Scaffold {
+  return scaffoldOf(spec.userTemplate, spec.systemPrompt)
+}
+
+/**
+ * Make a model's reply into window output: strip a whole-output code fence,
+ * then every echo of Turbine's own scaffolding (template.ts scrubOutput), so
+ * none of it is stored, carried into the next window, or validated.
+ */
+export function cleanOutput(raw: string, scaffold: Scaffold): CleanedOutput {
   let s = raw.trim()
   const fence = s.match(/^```[\w-]*\n([\s\S]*?)\n```$/)
   if (fence) s = fence[1].trim()
-  s = s.replace(/^<focus>\s*/i, '').replace(/\s*<\/focus>$/i, '')
-  return s
+  const scrubbed = scrubOutput(s, scaffold)
+  return { text: scrubbed.text.trim(), removed: fence ? ['whole-output code fence', ...scrubbed.removed] : scrubbed.removed }
 }
 
 export function computeStats(records: ReadonlyMap<number, WindowRecord>, total: number, elapsedMs: number): JobStats {
@@ -127,6 +142,7 @@ export async function* runJob(text: string, spec: JobSpec, provider: Provider, c
   if (control.only) for (const i of control.only) records.delete(i)
   const todo = windows.map((w) => w.index).filter((i) => (control.only ? control.only.includes(i) : !records.has(i)))
   const queue = new EventQueue<WindowEvent>()
+  const scaffold = specScaffold(spec)
   const signal = control.signal
   const startedAt = Date.now()
   const doneAtStart = records.size
@@ -172,6 +188,7 @@ export async function* runJob(text: string, spec: JobSpec, provider: Provider, c
     let lastError: string | undefined
     let lastUsage: WindowRecord['usage']
     let lastModel = provider.spec.model
+    let lastScrubbed: string[] = []
     let elapsed = 0
     const startedIso = new Date().toISOString()
 
@@ -191,7 +208,9 @@ export async function* runJob(text: string, spec: JobSpec, provider: Provider, c
         elapsed += result.elapsed_ms
         lastUsage = result.usage
         lastModel = result.model
-        const output = cleanOutput(result.text)
+        const cleaned = cleanOutput(result.text, scaffold)
+        const output = cleaned.text
+        lastScrubbed = cleaned.removed
         const validation = validateWindow(spec.validator, focusText, output)
         lastOutput = output
         lastValidation = validation
@@ -199,6 +218,7 @@ export async function* runJob(text: string, spec: JobSpec, provider: Provider, c
           const record: WindowRecord = {
             index, status: 'ok', output, attempt, model: result.model, connection: provider.spec.name, prompt_hash: promptHash,
             started_at: startedIso, elapsed_ms: elapsed, usage: result.usage, validation,
+            ...(cleaned.removed.length ? { scrubbed: cleaned.removed } : {}),
           }
           records.set(index, record)
           queue.push({ type: 'window-done', record })
@@ -237,6 +257,7 @@ export async function* runJob(text: string, spec: JobSpec, provider: Provider, c
       usage: lastUsage,
       validation: lastValidation,
       error: lastError,
+      ...(lastScrubbed.length ? { scrubbed: lastScrubbed } : {}),
     }
     records.set(index, record)
     queue.push({ type: 'window-done', record })

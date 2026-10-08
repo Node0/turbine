@@ -9,7 +9,7 @@ import * as T from './prompt.diamond.html'
 import type { ChatMessage, WindowPlan } from '../../../shared/types.ts'
 import type { PreviewEvent } from '../../../shared/api.ts'
 import { planFromSelection } from '../../../shared/engine/planner.ts'
-import { buildMessages, cleanOutput } from '../../../shared/engine/runner.ts'
+import { buildMessages, cleanOutput, specScaffold } from '../../../shared/engine/runner.ts'
 import { TEMPLATE_VARS } from '../../../shared/engine/template.ts'
 import { validateWindow } from '../../../shared/engine/validators.ts'
 import { SourceViewer } from '../../components/source-viewer.ts'
@@ -482,11 +482,11 @@ export class PromptPage extends Component {
             this.tail.stick()
           },
         })
-        const output = cleanOutput(result.text)
+        const { text: output, removed } = cleanOutput(result.text, specScaffold(spec))
         this.previewOutput = output
         this.tail.stick()
         const validation = validateWindow(spec.validator, text.slice(w.focusStart, w.focusEnd).trim(), output)
-        this.finishPreview(output, result.elapsed_ms, result.model, validation.ok ? `validation ok${validation.score !== undefined ? ` (${validation.score})` : ''}` : `validation FAILED: ${validation.reason}`, result.usage)
+        this.finishPreview(output, result.elapsed_ms, result.model, validation.ok ? `validation ok${validation.score !== undefined ? ` (${validation.score})` : ''}` : `validation FAILED: ${validation.reason}`, result.usage, removed)
       } else {
         await api.preview.stream(
           { doc_id: doc.id, spec, focus },
@@ -503,7 +503,7 @@ export class PromptPage extends Component {
               case 'done':
                 this.previewOutput = ev.output
                 this.tail.stick()
-                this.finishPreview(ev.output, ev.elapsed_ms, ev.model, ev.validation.ok ? `validation ok${ev.validation.score !== undefined ? ` (${ev.validation.score})` : ''}` : `validation FAILED: ${ev.validation.reason}`, ev.usage)
+                this.finishPreview(ev.output, ev.elapsed_ms, ev.model, ev.validation.ok ? `validation ok${ev.validation.score !== undefined ? ` (${ev.validation.score})` : ''}` : `validation FAILED: ${ev.validation.reason}`, ev.usage, ev.scrubbed)
                 break
               case 'error':
                 this.previewError = ev.error
@@ -530,7 +530,7 @@ export class PromptPage extends Component {
     }
   }
 
-  private finishPreview(output: string, elapsedMs: number, model: string, validationNote: string, usage?: { prompt_tokens?: number; completion_tokens?: number }): void {
+  private finishPreview(output: string, elapsedMs: number, model: string, validationNote: string, usage?: { prompt_tokens?: number; completion_tokens?: number }, scrubbed: string[] = []): void {
     prompt.recordMeasurement(output.length, elapsedMs)
     prompt.recordUsage(this.promptChars, usage?.prompt_tokens)
     const out = usage?.completion_tokens
@@ -543,7 +543,8 @@ export class PromptPage extends Component {
       }
     }
     const tps = out && elapsedMs > 0 ? ` · ${(out / (elapsedMs / 1000)).toFixed(1)} tok/s` : ''
-    this.previewMeta = `${model} · ${fmtDuration(elapsedMs)}${tps} · ${output.length.toLocaleString()} chars · ${validationNote}`
+    const removed = scrubbed.length ? ` · removed ${scrubbed.join('; ')}` : ''
+    this.previewMeta = `${model} · ${fmtDuration(elapsedMs)}${tps} · ${output.length.toLocaleString()} chars · ${validationNote}${removed}`
     Print('SUCCESS', `preview done in ${Math.round(elapsedMs)} ms`)
   }
 

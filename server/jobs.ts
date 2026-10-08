@@ -610,6 +610,7 @@ export function sanitizeRecord(input: unknown, windowCount: number): WindowRecor
       ...(typeof v.reason === 'string' ? { reason: v.reason.slice(0, 500) } : {}),
     },
     ...(typeof r.error === 'string' ? { error: r.error.slice(0, 2000) } : {}),
+    ...(Array.isArray(r.scrubbed) ? { scrubbed: r.scrubbed.filter((x): x is string => typeof x === 'string').slice(0, 50).map((x) => x.slice(0, 200)) } : {}),
   }
 }
 
