@@ -84,18 +84,20 @@
 
       <div class="panel model-params">
         <div class="panel-head">
-          <h2 title.to-view="tip('prompt.model.panel')"><span class="lbl">Model parameters</span></h2>
+          <h2 title.to-view="tip('prompt.model.panel')"><button type="button" class="disclosure" aria-controls="model-params-body" aria-expanded.to-view="paramsOpenAttr" click.calls="toggleParams()"><span class="caret" aria-hidden="true">▶</span><span class="lbl">Model parameters</span></button></h2>
           <span class="mono muted">${modelName}</span>
           <span class="muted" if="modelFacts">${modelFacts}</span>
           <span class="spacer"></span>
           <button type="button" class="btn btn-ghost btn-sm" disabled.to-view="modelLoading" click.calls="refreshModel()" title.to-view="tip('prompt.model.refresh')">${refreshLabel}</button>
           <button type="button" class="btn btn-ghost btn-sm" click.calls="resetModelParams()" title.to-view="tip('prompt.model.reset')">Reset defaults</button>
         </div>
-        <p class="hint" if="modelSource">${modelSource}</p>
-        <p class="error" if="modelError">${modelError}</p>
-        <div class="params-host"></div>
-        <p class="warn" repeat.for="n of modelNotes">${n}</p>
-        <p class="hint">Cleared knobs are not sent, so the backend's own defaults apply. Values here go straight to the backend for every window and for previews.</p>
+        <div id="model-params-body" class="disclosure-body" hidden.to-view="!paramsOpen">
+          <p class="hint" if="modelSource">${modelSource}</p>
+          <p class="error" if="modelError">${modelError}</p>
+          <div class="params-host"></div>
+          <p class="warn" repeat.for="n of modelNotes">${n}</p>
+          <p class="hint">Cleared knobs are not sent, so the backend's own defaults apply. Values here go straight to the backend for every window and for previews.</p>
+        </div>
       </div>
 
       <div class="panel plan">

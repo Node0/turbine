@@ -40,6 +40,17 @@ function fmtDuration(ms: number | null): string {
 
 const template = (T as unknown as { createTemplate: (this: PromptPage) => HTMLElement }).createTemplate
 
+/** Remembers whether Model parameters is unfurled; a per-browser convenience, so storage failures are ignored. */
+const PARAMS_OPEN_KEY = 'turbine.ui.params_open'
+
+function loadParamsOpen(): boolean {
+  try {
+    return localStorage.getItem(PARAMS_OPEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export class PromptPage extends Component {
   private viewer = new SourceViewer({ compact: true })
   private paramsForm = new ModelParamsForm()
@@ -59,6 +70,7 @@ export class PromptPage extends Component {
   @reactive genTokens = 0
   @reactive genExact = false
   @reactive genFinal = ''
+  @reactive paramsOpen = loadParamsOpen()
 
   readonly templateVars: string[] = [...TEMPLATE_VARS].map((v) => `{{${v}}}`)
 
@@ -107,6 +119,20 @@ export class PromptPage extends Component {
   }
   set userTemplate(v: unknown) {
     prompt.state.spec.userTemplate = String(v ?? '')
+  }
+  get paramsOpenAttr(): string {
+    return String(this.paramsOpen)
+  }
+  toggleParams(): void {
+    this.paramsOpen = !this.paramsOpen
+    try {
+      localStorage.setItem(PARAMS_OPEN_KEY, this.paramsOpen ? '1' : '0')
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  get unknownVars(): string {
+    return prompt.state.unknownVars.join(', ')
   }
   get templateError(): string {
     return prompt.state.templateError
