@@ -198,10 +198,10 @@ Each window's output can be checked before it is accepted. A failed check retrie
 | Validator | What it checks | Use it when |
 |---|---|---|
 | **none** | nothing | you trust the model, or the task is a free rewrite |
-| **conserve** | the words of the output, with Markdown stripped, still match the words of the input | the model must *format*, not *rewrite*: Markdown conversion, heading promotion, paragraph rejoining |
+| **conserve** | the words of the output still match the words of the input, with Markdown stripped from both | the model must *format*, not *rewrite*: Markdown conversion, heading promotion, paragraph rejoining |
 | **length-ratio** | the output's length is within a configurable band of the input's | translation, light editing, anything where drift in size signals a problem |
 
-**Min similarity** (the conserve validator) strips Markdown from the output, normalises case, quotes, dashes and punctuation on both sides, splits into words, and scores `2·LCS / (|input| + |output|)` where LCS is the longest common subsequence of words. 1.0 means every word survived in order; 0.95 tolerates roughly one word in twenty added, dropped or changed.
+**Min similarity** (the conserve validator) puts both sides through the same steps, so a verbatim copy always scores 1.0. It strips the Markdown that hides letters a reader never sees (HTML tags, link and image URLs, fence language names, entity names), keeping code literally and keeping any `<` or `>` that isn't a tag or autolink as text. It then normalises case, quotes, dashes and punctuation, splits into words, and scores `2·LCS / (|input| + |output|)` where LCS is the longest common subsequence of words. 1.0 means every word survived in order; 0.95 tolerates roughly one word in twenty added, dropped or changed.
 
 ---
 
