@@ -9,6 +9,7 @@
  *   length-ratio  output length / focus length must fall inside [min, max]
  */
 
+import { lcs } from 'fast-myers-diff'
 import type { ValidationResult, ValidatorSpec } from '../types.ts'
 
 export function stripMarkdown(s: string): string {
@@ -44,24 +45,18 @@ export function normalizeForCompare(s: string): string {
 
 /**
  * 2·LCS / (|a| + |b|) over word arrays — order-sensitive, insertion/deletion
- * tolerant. Two-row DP, bounded so a pathological window can't hang a worker.
+ * tolerant. Myers' O((N+M)·D) diff: near-linear when the output is close to the
+ * focus (the normal case), quadratic only for unrelated text. The cap bounds
+ * that worst case so a pathological window can't hang a worker.
  */
 export function sequenceSimilarity(a: string[], b: string[], cap = 12_000): number {
   if (a.length === 0 && b.length === 0) return 1
   if (a.length === 0 || b.length === 0) return 0
   const x = a.length > cap ? a.slice(0, cap) : a
   const y = b.length > cap ? b.slice(0, cap) : b
-  let prev = new Uint32Array(y.length + 1)
-  let cur = new Uint32Array(y.length + 1)
-  for (let i = 1; i <= x.length; i++) {
-    const xi = x[i - 1]
-    for (let j = 1; j <= y.length; j++) {
-      cur[j] = xi === y[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1])
-    }
-    ;[prev, cur] = [cur, prev]
-  }
-  const lcs = prev[y.length]
-  return (2 * lcs) / (x.length + y.length)
+  let common = 0
+  for (const [, , len] of lcs(x, y)) common += len
+  return (2 * common) / (x.length + y.length)
 }
 
 export function conserveScore(focus: string, output: string): number {
