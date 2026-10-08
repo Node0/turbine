@@ -8,7 +8,7 @@ A programmable sliding-window **map/reduce pump for long documents**. Turbine re
 
 It is a browser-hosted app: [DiamondJS](https://github.com/Node0/diamondjs) front end, [Elysia](https://elysiajs.com) on [Bun](https://bun.sh) back end. Run it on your Mac, on a LAN box, or on a public server. Inference comes from wherever you point it: Ollama, vLLM, llama.cpp, OpenRouter, OpenAI, Anthropic, or any OpenAI-compatible endpoint.
 
-Turbine was built to turn plain-text books into clean Markdown without changing a single word of the author's prose, and the **conserve** validator exists to prove that it didn't. But the instructions are arbitrary: style rewrites, translation, annotation, extraction, anything that fits in a window.
+Turbine was built to turn plain-text books into clean Markdown without changing a single word of the author's prose, and the **conserve** validator exists to prove that it didn't. But the instructions are arbitrary: style rewrites, translation, annotation, extraction, anything that fits in a window. Markdown is one use case, not the point of the tool: format-specific knowledge is being moved out of the engine into `shared/formats/` (see the [roadmap](ROADMAP.md)).
 
 <p align="center">
   <img src="docs/turbine-output-running.png" alt="Turbine's Output tab mid-run: the job strip shows 1 of 5 windows done with an ETA, window chips show each window's state, the assembled output on the left holds placeholders for pending windows, and the live pane on the right streams the current window" width="1000">
@@ -34,6 +34,7 @@ Turbine was built to turn plain-text books into clean Markdown without changing 
 - [Repository layout](#repository-layout)
 - [Sample documents and the corpus tool](#sample-documents-and-the-corpus-tool)
 - [Development](#development)
+- [Roadmap](#roadmap)
 - [License](#license)
 
 ---
@@ -172,7 +173,7 @@ A smaller `ctx_len` therefore means smaller windows (or fewer of them fitting), 
   <sub>Discovered, not hard-coded. Every knob shows its bounds, the model's own default, and where that information came from.</sub>
 </p>
 
-The *Model parameters* panel on the Prompt tab is populated by asking the backend, not from a fixed list:
+The *Model parameters* panel on the Prompt tab is populated by asking the backend, not from a fixed list. It starts collapsed: the caret beside its title points right when collapsed and down when open, and the browser remembers your choice. The model name, its context facts, *Refresh from backend* and *Reset defaults* stay visible either way.
 
 | Backend | Discovery endpoint | What it yields |
 |---|---|---|
@@ -201,7 +202,9 @@ Each window's output can be checked before it is accepted. A failed check retrie
 | **conserve** | the words of the output still match the words of the input, with Markdown stripped from both | the model must *format*, not *rewrite*: Markdown conversion, heading promotion, paragraph rejoining |
 | **length-ratio** | the output's length is within a configurable band of the input's | translation, light editing, anything where drift in size signals a problem |
 
-**Min similarity** (the conserve validator) puts both sides through the same steps, so a verbatim copy always scores 1.0. It strips the Markdown that hides letters a reader never sees (HTML tags, link and image URLs, fence language names, entity names), keeping code literally and keeping any `<` or `>` that isn't a tag or autolink as text. It then normalises case, quotes, dashes and punctuation, splits into words, and scores `2·LCS / (|input| + |output|)` where LCS is the longest common subsequence of words. 1.0 means every word survived in order; 0.95 tolerates roughly one word in twenty added, dropped or changed.
+**Min similarity** (the conserve validator) puts both sides through the same steps, so a verbatim copy always scores 1.0. It strips the Markdown that hides letters a reader never sees (HTML tags, link and image URLs, fence language names, entity names), keeping code literally and keeping any `<` or `>` that isn't a tag or autolink as text. It then normalises case, quotes, dashes and punctuation, splits into words, and scores `2·LCS / (|input| + |output|)` where LCS is the longest common subsequence of words, computed with Myers' diff (near-linear when the output is close to the input, which is the normal case). 1.0 means every word survived in order; 0.95 tolerates roughly one word in twenty added, dropped or changed.
+
+The Markdown cleanup is a named, ordered rule table in `shared/formats/markdown.ts`. Each rule states why it exists, and none crosses a line break, so a rule that misfires costs one line at most. Punctuation markup (`**`, `_`, `#`, `>`, `|`, list numbers) needs no rule, because normalisation already turns it into spaces. Angle brackets count as markup only in autolinks, real HTML elements and link destinations. Inside code spans and fenced blocks everything is literal.
 
 ---
 
@@ -210,11 +213,11 @@ Each window's output can be checked before it is accepted. A failed check retrie
 The **Output** tab is the job's cockpit:
 
 - The **job strip** shows state, source name, windows done, elapsed time and ETA, cumulative input and output tokens, and which backend is doing the work and where (on the server or in this browser).
-- **Window chips** show every window's state: pending, running, ok, flagged, failed. Click any chip to re-run just that window; the result replaces the old one in the checkpoint and the assembled output.
+- **Window chips** show every window's state: pending, running, ok, flagged, failed. Hover a chip for its details: validation score, error, attempts, and any Turbine scaffolding removed from the reply. Click any chip to re-run just that window; the result replaces the old one in the checkpoint and the assembled output.
 - **Output** is the assembled document so far. Windows that have not finished appear as `<!-- turbine: window N pending -->` placeholders, so the shape of the final file is visible from the first minute.
 - **Live** streams the window currently being generated. It follows the newest text while you are at the bottom, releases when you scroll up, and re-engages when you scroll back down.
 - **Pause**, **Resume** and **Cancel** do what they say. A paused or interrupted job resumes from its checkpoint; finished windows are never regenerated.
-- **Save output** downloads `<stem>__transformed.md`. The checkpoint, `<stem>__turbine.jsonl`, carries full provenance for every window: model, connection, prompt hash, timing, token usage and validation result.
+- **Save output** downloads `<stem>__transformed.md`. The checkpoint, `<stem>__turbine.jsonl`, carries full provenance for every window: model, connection, prompt hash, timing, token usage, validation result, and what was scrubbed from the reply.
 
 ---
 
@@ -302,6 +305,7 @@ turbine/
 ├── sample_documents/        plain-text books to try Turbine on
 ├── tests/                   bun test: shared/, server/, live/ (opt-in)
 ├── docs/                    images used in this README
+├── ROADMAP.md               what's next, nearest first
 └── data/                    uploads, job checkpoints (git-ignored)
 ```
 
@@ -343,6 +347,12 @@ Two settings still matter:
 
 - `tsconfig.json` sets `experimentalDecorators: true` **and** `useDefineForClassFields: false`, the documented configuration. Since 2.2.3 reactivity no longer depends on the second flag, but it keeps the compiled output honest.
 - `package.json` declares an explicit browser `targets.client` block for Parcel; without it Parcel externalized the `@diamondjs/*` imports and the page came up blank.
+
+---
+
+## Roadmap
+
+What's coming next, nearest first, is in [ROADMAP.md](ROADMAP.md).
 
 ---
 
