@@ -109,7 +109,13 @@ The header shows where inference is running at all times ("OpenRouter · model" 
 Two text boxes define what the model sees:
 
 - **Instructions** are the system prompt. The default is a careful copy editor converting plain text to Markdown without paraphrasing.
-- **Window template** is the user message, rendered once per window. Variables: `{{context_before}}`, `{{focus}}`, `{{context_after}}`, `{{carry}}`, `{{window_index}}`, `{{window_count}}`, `{{source_name}}`. Blocks like `{{#carry}}…{{/carry}}` render only when the variable is non-empty, so the same template works for both map and fold modes.
+- **Window template** is the user message, rendered once per window. Variables: `{{context_before}}`, `{{focus}}`, `{{context_after}}`, `{{carry}}`, `{{window_index}}`, `{{window_count}}`, `{{source_name}}`. Conditionals keep one template working for both map and fold modes:
+
+  ```
+  {% if carry %} … {% else-if context_before %} … {% else %} … {% end-if carry %}
+  ```
+
+  `{% if name %}` renders when the variable is non-empty (not `''`, `0` or missing) and `{% if not name %}` when it is empty. `{% end-if %}` repeats the variable it closes, so a mismatched block is a clear error, not a silently wrong prompt. A tag alone on its line removes the whole line. Values are inserted as plain text and never parsed again, so a document containing `{{ … }}` or `{% … %}` passes through untouched. A `{%` that isn't a valid tag is an error with a line and column; the editor shows it and Preview and Start stay disabled until it's fixed. Templates saved in the older `{{#name}}…{{/name}}` style are converted when loaded.
 
 **Pick a focus** lets you choose any window from the plan (or jump to a percentage of the document) and **Run preview** sends exactly that window to the backend. The *Rendered messages* disclosure shows the literal system and user messages the model received, so there is no guessing about what the template expanded to.
 

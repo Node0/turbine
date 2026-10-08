@@ -18,8 +18,9 @@
           <button type="button" class="chip" repeat.for="v of templateVars" click.calls="insertVar(v)">${v}</button>
         </div>
         <textarea class="mono tall" value.two-way="userTemplate" placeholder="How each window is presented to the model" title.to-view="tip('prompt.template.user')"></textarea>
+        <p class="warn" if="templateError">Template error: ${templateError}</p>
         <p class="warn" if="unknownVars">Unknown variables (Turbine will leave them as-is): ${unknownVars}</p>
-        <p class="hint">Blocks like <code>{{#carry}}…{{/carry}}</code> render only when the variable is non-empty.</p>
+        <p class="hint"><code>{% if carry %}…{% end-if carry %}</code> renders only when the variable is non-empty; <code>{% if not carry %}</code>, <code>{% else-if name %}</code> and <code>{% else %}</code> work too.</p>
       </div>
 
       <div class="panel">

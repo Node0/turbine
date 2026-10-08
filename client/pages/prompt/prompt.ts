@@ -108,8 +108,8 @@ export class PromptPage extends Component {
   set userTemplate(v: unknown) {
     prompt.state.spec.userTemplate = String(v ?? '')
   }
-  get unknownVars(): string {
-    return prompt.state.unknownVars.join(', ')
+  get templateError(): string {
+    return prompt.state.templateError
   }
   insertVar(v: string): void {
     const el = this.lastUserTemplateEl
@@ -340,7 +340,7 @@ export class PromptPage extends Component {
       : 'Time estimate assumes ~20 s per window until a preview measures the real speed.'
   }
   get canStart(): boolean {
-    return this.hasDoc && !this.starting && !this.overBudget && (prompt.state.estimate?.window_count ?? 0) > 0 && session.state.connected && !job.isActive
+    return this.hasDoc && !this.starting && !this.overBudget && !prompt.state.templateError && (prompt.state.estimate?.window_count ?? 0) > 0 && session.state.connected && !job.isActive
   }
   get startLabel(): string {
     if (this.starting) return 'Starting…'
@@ -406,7 +406,7 @@ export class PromptPage extends Component {
   }
   get canPreview(): boolean {
     void prompt.state.planVersion
-    return this.hasDoc && !this.previewing && session.state.connected && prompt.previewFocus() !== null
+    return this.hasDoc && !this.previewing && !prompt.state.templateError && session.state.connected && prompt.previewFocus() !== null
   }
   get previewWhere(): string {
     const ex = session.state.execution
