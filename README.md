@@ -293,7 +293,8 @@ turbine/
 │   ├── api.ts               the HTTP/WS contract, every route in one comment block
 │   ├── defaults.ts          defaultJobSpec / validateJobSpec
 │   ├── providers/           registry keyed by api_type; openai / ollama / anthropic; presets; parameter discovery
-│   └── engine/              planner, template, validators, runner (async generator), assemble
+│   ├── engine/              planner, template, validators, runner (async generator), assemble
+│   └── formats/             output-format knowledge kept out of the engine: markdown.ts (comparison cleanup)
 ├── server/                  Elysia: sessions, key vault, docs, jobs, WS fan-out, static
 ├── client/                  DiamondJS: shell, routes, guards, services, pages, source viewer
 │   └── tooltips.json        hover help, view → component → field
